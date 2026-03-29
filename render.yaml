@@ -3,7 +3,7 @@ services:
     name: elite-rat-server
     runtime: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn --worker-class geventwebsocket.gunicorn.workers.GeventWebSocketWorker --bind 0.0.0.0:$PORT app:app
+    startCommand: gunicorn --worker-class gthread --threads 50 --bind 0.0.0.0:$PORT app:app
     envVars:
       - key: PYTHON_VERSION
         value: "3.11.6"
