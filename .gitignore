@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.pyc
+uploads/
+elite-rat-server/
+client.py
+Requirements.txt
