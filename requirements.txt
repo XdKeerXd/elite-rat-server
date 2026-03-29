@@ -1,14 +1,4 @@
 Flask
 Flask-SocketIO
 gunicorn
-python-socketio[client]
 requests
-pillow
-mss
-pynput
-psutil
-pywin32
-opencv-python
-pyautogui
-pycryptodome
-pyaudio
