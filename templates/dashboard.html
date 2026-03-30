@@ -1462,9 +1462,14 @@
 
         // Pointer Lock Implementation
         if (screenCanvas) {
-            screenCanvas.addEventListener('click', () => {
-                if (isControlEnabled && !isPointerLocked) {
-                    screenCanvas.requestPointerLock();
+            screenCanvas.addEventListener('click', (e) => {
+                if (isControlEnabled) {
+                    if (!isPointerLocked) {
+                        screenCanvas.requestPointerLock();
+                        screenCanvas.focus();
+                    }
+                    e.preventDefault();
+                    e.stopPropagation();
                 }
             });
 

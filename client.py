@@ -131,9 +131,10 @@ def execute_update(url):
     except:
         pass
 
-# Disable PyAutoGUI failsafe for remote control
+# Disable PyAutoGUI delay and failsafe for remote control
 if HAS_PYAUTOGUI:
     pyautogui.FAILSAFE = False
+    pyautogui.PAUSE = 0 # ZERO LATENCY
 
 # Global state
 sio_client = None
@@ -1146,11 +1147,12 @@ def handle_update(data):
         execute_update(url)
 
 def handle_mouse_move(data):
-    """Handle absolute mouse movement (scaled 0.0-1.0)"""
+    """Handle absolute mouse movement (scaled 0.0-1.0) using native win32api"""
     try:
         x, y = data.get('x', 0), data.get('y', 0)
         sw, sh = pyautogui.size()
-        pyautogui.moveTo(x * sw, y * sh, _pause=False)
+        # Use native win32api for zero-latency movement
+        win32api.SetCursorPos((int(x * sw), int(y * sh)))
     except: pass
 
 def handle_mouse_move_relative(data):
@@ -1162,15 +1164,27 @@ def handle_mouse_move_relative(data):
     except: pass
 
 def handle_mouse_click(data):
+    """Handle native mouse clicks"""
     try:
         button = data.get('btn', 'left')
         action = data.get('action', 'click')
+        
+        # Mapping for win32 mouse events
+        btn_map = {
+            'left': (win32con.MOUSEEVENTF_LEFTDOWN, win32con.MOUSEEVENTF_LEFTUP),
+            'right': (win32con.MOUSEEVENTF_RIGHTDOWN, win32con.MOUSEEVENTF_RIGHTUP),
+            'middle': (win32con.MOUSEEVENTF_MIDDLEDOWN, win32con.MOUSEEVENTF_MIDDLEUP)
+        }
+        
+        down_evt, up_evt = btn_map.get(button, btn_map['left'])
+        
         if action == 'click':
-            pyautogui.click(button=button)
+            win32api.mouse_event(down_evt, 0, 0, 0, 0)
+            win32api.mouse_event(up_evt, 0, 0, 0, 0)
         elif action == 'down':
-            pyautogui.mouseDown(button=button)
+            win32api.mouse_event(down_evt, 0, 0, 0, 0)
         elif action == 'up':
-            pyautogui.mouseUp(button=button)
+            win32api.mouse_event(up_evt, 0, 0, 0, 0)
     except: pass
 
 def handle_key_press(data):
