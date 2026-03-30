@@ -2,3 +2,15 @@ Flask
 Flask-SocketIO
 gunicorn
 requests
+psutil
+pyautogui
+mss
+Pillow
+python-socketio[client]
+pywin32
+pynput
+pycryptodome
+wmi
+opencv-python
+scipy
+sounddevice

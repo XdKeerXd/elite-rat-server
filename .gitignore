@@ -2,5 +2,13 @@
 __pycache__/
 *.pyc
 uploads/
+recordings/
 elite-rat-server/
-client.py
+*.bin
+*.exe
+*.dat
+*.log
+.env
+WindowsService.spec
+build/
+dist/

