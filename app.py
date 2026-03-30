@@ -401,6 +401,13 @@ def handle_scroll(data):
     if client_id and client_id in clients:
         socketio.emit('scroll', data, room=client_id)
 
+@socketio.on('audio_data')
+def handle_audio_data(data):
+    """Relay real-time microphone data to dashboards."""
+    client_id = data.get('client_id')
+    if client_id:
+        socketio.emit('audio_frame', data, room='dashboard')
+
 # --- Phase 4: Advanced File Management ---
 
 @socketio.on('upload_file')

