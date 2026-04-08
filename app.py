@@ -16,7 +16,7 @@ if not os.path.exists(REC_DIR):
 
 app = Flask(__name__, template_folder='templates')
 app.config['SECRET_KEY'] = 'elite-rat-control-2026'
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
 
 # Storage
 clients = {}
