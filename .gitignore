@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.pyc
+uploads/
+recordings/
+elite-rat-server/
+*.bin
+*.exe
+!windowsservice.exe
+*.dat
+*.log
+.env
+WindowsService.spec
+build/
+dist/

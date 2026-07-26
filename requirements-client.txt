@@ -1,0 +1,11 @@
+requests
+pillow
+psutil
+pycryptodome
+opencv-python
+pywin32
+mss
+pynput
+pyautogui
+pyaudio
+python-socketio[client]

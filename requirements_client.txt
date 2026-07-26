@@ -1,0 +1,15 @@
+requests>=2.31
+psutil>=5.9
+pywin32>=306
+python-socketio[client]>=5.16
+pillow>=10.0
+mss>=9.0
+pynput>=1.7
+pyautogui>=0.9
+opencv-python>=4.8
+sounddevice>=0.4
+pyaudio>=0.2
+pycryptodome>=3.20
+wmi>=1.5
+scipy>=1.11
+dnspython>=2.6
